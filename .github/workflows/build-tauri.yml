@@ -12,6 +12,10 @@ on:
 env:
   PNPM_VERSION: '9'
 
+# 需要 contents:write 才能创建 Release 并上传 .exe 产物
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     name: Build Windows Desktop App
