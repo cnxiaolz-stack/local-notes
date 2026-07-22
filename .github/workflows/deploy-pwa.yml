@@ -54,7 +54,28 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate PWA icons
-        run: node scripts/gen-icons.mjs
+        run: |
+          # SimHei.ttf 不纳入版本控制（体积大），CI 中按需下载
+          mkdir -p scripts/fonts
+          ok=0
+          for url in \
+            'https://cdn.jsdelivr.net/gh/StellarCN/scp_zh/fonts/SimHei.ttf' \
+            'https://cdn.jsdelivr.net/gh/StellarCN/scp_zh@master/fonts/SimHei.ttf'; do
+            echo "尝试下载: $url"
+            if curl -fsSL --retry 3 --retry-delay 2 -o scripts/fonts/SimHei.ttf "$url"; then
+              size=$(stat -c%s scripts/fonts/SimHei.ttf)
+              if [ "$size" -gt 1000000 ]; then
+                ok=1
+                echo "下载成功 ($size bytes)"
+                break
+              fi
+            fi
+          done
+          if [ "$ok" -eq 0 ]; then
+            echo "::error::SimHei.ttf 下载失败"
+            exit 1
+          fi
+          node scripts/gen-icons.mjs
 
       - name: Configure GitHub Pages
         id: pages
