@@ -36,3 +36,5 @@ dev-dist
 public/*.png
 src-tauri/icons/*
 !src-tauri/icons/.gitkeep
+.pnpm-store/
+dev-dist/
