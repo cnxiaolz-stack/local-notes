@@ -17,7 +17,7 @@ const fontPath = join(__dirname, 'fonts', 'SimHei.ttf')
 if (!existsSync(fontPath)) {
   console.error(`✗ 缺少黑体字体文件：${fontPath}`)
   console.error('  请放置 SimHei.ttf 到 scripts/fonts/ 后重试。')
-  console.error('  下载参考：https://cdn.jsdelivr.net/gh/ichitenfont/simhei.font/SimHei.ttf')
+  console.error('  下载参考：https://cdn.jsdelivr.net/gh/StellarCN/scp_zh/fonts/SimHei.ttf')
   process.exit(1)
 }
 

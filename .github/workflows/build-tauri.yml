@@ -43,9 +43,23 @@ jobs:
         run: |
           # SimHei.ttf 不纳入版本控制（体积大），CI 中按需下载
           mkdir -p scripts/fonts
-          curl -fsSL -o scripts/fonts/SimHei.ttf https://cdn.jsdelivr.net/gh/ichitenfont/simhei.font/SimHei.ttf
+          # 主源 + 备用源，任一成功即可
+          $ok = $false
+          foreach ($url in @(
+            'https://cdn.jsdelivr.net/gh/StellarCN/scp_zh/fonts/SimHei.ttf',
+            'https://cdn.jsdelivr.net/gh/StellarCN/scp_zh@master/fonts/SimHei.ttf'
+          )) {
+            Write-Host "尝试下载: $url"
+            curl -fsSL --retry 3 --retry-delay 2 -o scripts/fonts/SimHei.ttf $url
+            if ($LASTEXITCODE -eq 0 -and (Test-Path scripts/fonts/SimHei.ttf)) {
+              $size = (Get-Item scripts/fonts/SimHei.ttf).Length
+              if ($size -gt 1000000) { $ok = $true; Write-Host "下载成功 ($size bytes)"; break }
+            }
+          }
+          if (-not $ok) { Write-Error "SimHei.ttf 下载失败"; exit 1 }
           node scripts/gen-icons.mjs
           pnpm tauri icon src-tauri/icons/source.png
+        shell: pwsh
 
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
