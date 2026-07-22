@@ -10,6 +10,14 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
+// 禁用全局右键菜单（对应交互重构 H：应用图标等内容不可复制/选中）
+// Tauri 2 不再支持 tauri.conf.json 的 disableContextMenu 字段，改在前端拦截。
+if (typeof window !== 'undefined') {
+  window.addEventListener('contextmenu', (e) => {
+    e.preventDefault()
+  })
+}
+
 // 先初始化本地数据库，再挂载应用
 ;(async () => {
   try {
