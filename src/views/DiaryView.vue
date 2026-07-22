@@ -40,10 +40,17 @@ async function selectDate(date: string): Promise<void> {
   if (date === selectedDate.value && !isLoading.value) return
   isLoading.value = true
   isSidebarOpen.value = false
-  await diaryStore.loadDiary(date)
-  diaryContent.value = diaryStore.currentDiary?.content ?? ''
-  selectedDate.value = date
-  isLoading.value = false
+  try {
+    await diaryStore.loadDiary(date)
+    diaryContent.value = diaryStore.currentDiary?.content ?? ''
+    selectedDate.value = date
+  } catch (err) {
+    console.error('[qingji] 加载日记失败：', err)
+    diaryContent.value = ''
+    selectedDate.value = date
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function handleSelect(date: string): void {
@@ -73,8 +80,13 @@ watch(
 )
 
 onMounted(async () => {
-  await Promise.all([diaryStore.loadDiaryDates(), refreshAllDiaries()])
-  await selectDate(todayStr())
+  try {
+    await Promise.all([diaryStore.loadDiaryDates(), refreshAllDiaries()])
+  } catch (err) {
+    console.error('[qingji] 日记数据加载失败：', err)
+  } finally {
+    await selectDate(todayStr())
+  }
 })
 </script>
 

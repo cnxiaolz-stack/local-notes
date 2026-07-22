@@ -19,6 +19,7 @@ useAppStore(pinia).initTheme()
   try {
     await initDatabase()
   } catch (err) {
+    // 数据库初始化失败时打印详细错误，便于排查（不阻断挂载，PWA 端可降级）
     console.error('[qingji] 数据库初始化失败：', err)
   }
   app.mount('#app')
