@@ -1,0 +1,25 @@
+[package]
+name = "qingji"
+version = "0.1.0"
+description = "轻记 QingJi - 本地轻量便签/任务/日记应用"
+authors = ["QingJi"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "qingji_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

@@ -1,0 +1,74 @@
+name: Deploy PWA to Pages
+
+# 触发条件：推送到 main 分支（前端相关文件变动时）/ 手动触发
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只允许一个部署任务，避免冲突
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: '9'
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy PWA
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      # 根据仓库类型自动设置 base 路径（项目页 /repo-name/，用户页 /）
+      # vite-plugin-pwa 会依据 base 自动调整 manifest 的 start_url/scope
+      - name: Build PWA
+        run: |
+          pnpm exec vue-tsc -b
+          pnpm exec vite build --base=${{ steps.pages.outputs.base_path }}/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
