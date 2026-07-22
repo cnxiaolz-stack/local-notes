@@ -21,6 +21,8 @@ export interface StorageAdapter {
   getAllNotes(): Promise<Note[]>
   getNotesByDate(date: string): Promise<Note[]>
   getNote(id: string): Promise<Note | null>
+  /** 分页查询便签（按 updated_at DESC），用于列表滚动加载 */
+  getNotesPage(limit: number, offset: number): Promise<Note[]>
   createNote(note: Omit<Note, 'id' | 'created_at' | 'updated_at'>): Promise<Note>
   updateNote(id: string, patch: Partial<Note>): Promise<Note>
   deleteNote(id: string): Promise<void>
@@ -28,6 +30,8 @@ export interface StorageAdapter {
   // ---- Diaries ----
   getDiary(date: string): Promise<Diary | null>
   getAllDiaries(): Promise<Diary[]>
+  /** 分页查询日记（按 date DESC），用于列表滚动加载 */
+  getDiariesPage(limit: number, offset: number): Promise<Diary[]>
   upsertDiary(diary: Omit<Diary, 'created_at' | 'updated_at'> & { date: string }): Promise<Diary>
   deleteDiary(date: string): Promise<void>
 

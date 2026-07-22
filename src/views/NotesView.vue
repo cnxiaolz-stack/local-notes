@@ -1,61 +1,42 @@
 <script setup lang="ts">
-// 便签主视图：左侧列表（当日视图 / 全部按月分组）+ 右侧内联编辑区。
-// 日期由全局 header 的日历按钮驱动（app.selectedDate）。
-import { computed, onMounted, ref, watch } from 'vue'
+// 便签主视图：上方输入（主要位置）+ 下方全部便签列表（滚动加载）。
+// 搜索为次要动作（右上图标按钮展开），搜索时全量内存过滤。
+// 便签列表恒为全部（按 updated_at DESC），不再按日期过滤。
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useNoteStore } from '@/stores/note'
 import { useAppStore } from '@/stores/app'
 import type { Note } from '@/types'
 import NoteEditor from '@/components/note/NoteEditor.vue'
 import SearchBar from '@/components/note/SearchBar.vue'
-import { formatRelative } from '@/utils/time'
+import { formatRelative, todayStr } from '@/utils/time'
 
 const store = useNoteStore()
 const app = useAppStore()
 
-type ListMode = 'day' | 'all'
-const listMode = ref<ListMode>('day')
+const today = todayStr()
 
 /** 编辑器会话：sessionKey 变化时编辑器重新挂载；new→edit 切换不变（保持焦点） */
 const sessionKey = ref(0)
 const editingNote = ref<Note | null>(null)
-const isNew = ref(false)
-const showEditor = computed(() => isNew.value || editingNote.value !== null)
-const editingId = computed(() => editingNote.value?.id ?? null)
 
-const activeNotes = computed(() => store.dayActive(app.selectedDate))
-const archivedNotes = computed(() => store.dayArchived(app.selectedDate))
-const monthGroups = computed(() => store.groupedByMonth)
-const isEmpty = computed(() => store.notes.length === 0)
-
+/** 搜索框展开态（次要动作，默认收起） */
+const searchOpen = ref(false)
 const searchKeyword = computed<string>({
   get: () => store.searchKeyword,
   set: (v) => {
     store.searchKeyword = v
   }
 })
+const searching = computed(() => store.searchKeyword.trim() !== '')
 
-function matchesSearch(note: Note): boolean {
-  const kw = store.searchKeyword.trim().toLowerCase()
-  if (!kw) return true
-  return (
-    note.title.toLowerCase().includes(kw) ||
-    note.content.toLowerCase().includes(kw)
-  )
-}
+/** 列表展示数据：搜索时用全量内存过滤结果，否则用分页列表 */
+const displayNotes = computed(() =>
+  searching.value ? store.searchResults : store.pagedNotes
+)
 
-const filteredActive = computed(() => activeNotes.value.filter(matchesSearch))
-const filteredArchived = computed(() =>
-  archivedNotes.value.filter(matchesSearch)
-)
-const hasNoResults = computed(
-  () =>
-    !isEmpty.value &&
-    filteredActive.value.length === 0 &&
-    filteredArchived.value.length === 0
-)
-const hasNoAllResults = computed(
-  () => !isEmpty.value && monthGroups.value.length === 0
-)
+/** 滚动加载哨兵 */
+const sentinelEl = ref<HTMLDivElement | null>(null)
+let observer: IntersectionObserver | null = null
 
 /** 便签标题：标题为空时取正文首行，再为空则"无标题" */
 function noteTitle(note: Note): string {
@@ -68,47 +49,61 @@ function noteTitle(note: Note): string {
   return firstLine || '无标题'
 }
 
-/** 便签修改时间相对标签 */
 function noteUpdatedLabel(note: Note): string {
   return formatRelative(note.updated_at)
-}
-
-function handleNew(): void {
-  sessionKey.value++
-  editingNote.value = null
-  isNew.value = true
 }
 
 function handleOpen(note: Note): void {
   sessionKey.value++
   editingNote.value = note
-  isNew.value = false
 }
 
 function onCreated(note: Note): void {
   // 草稿落库：切换为编辑该便签，不改变 sessionKey（保持编辑器挂载与焦点）
   editingNote.value = note
-  isNew.value = false
+  void store.loadNotesPage(true)
 }
 
 function onDeleted(): void {
   editingNote.value = null
-  isNew.value = false
+  sessionKey.value++
+  void store.loadNotesPage(true)
 }
 
 function onCloseEditor(): void {
   editingNote.value = null
-  isNew.value = false
+  sessionKey.value++
 }
 
-// 全局日期变化 → 关闭编辑器（编辑器卸载时会 flushSave 落库草稿）
-watch(
-  () => app.selectedDate,
-  () => {
-    editingNote.value = null
-    isNew.value = false
-  }
-)
+function openSearch(): void {
+  searchOpen.value = true
+  nextTick(() => {
+    document.querySelector<HTMLInputElement>('.notes-view .search-input')?.focus()
+  })
+}
+
+function closeSearch(): void {
+  searchOpen.value = false
+  store.searchKeyword = ''
+}
+
+function setupObserver(): void {
+  if (!sentinelEl.value || typeof IntersectionObserver === 'undefined') return
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (
+        entries[0].isIntersecting &&
+        !searching.value &&
+        store.notesHasMore &&
+        !store.notesLoading
+      ) {
+        void store.loadNotesPage()
+      }
+    },
+    { root: null, rootMargin: '200px' }
+  )
+  observer.observe(sentinelEl.value)
+}
 
 // 便签日期集合变化 → 同步全局日历标记
 watch(
@@ -119,18 +114,33 @@ watch(
 )
 
 onMounted(async () => {
-  await store.loadNotes()
+  try {
+    await Promise.all([store.loadNotes(), store.loadNotesPage(true)])
+  } catch (err) {
+    console.error('[qingji] 便签数据加载失败：', err)
+  }
   app.setMarkedDates(store.noteDates)
+  nextTick(() => setupObserver())
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
 })
 </script>
 
 <template>
   <section class="notes-view">
-    <div class="notes-layout">
-      <!-- 左侧：列表区（移动端编辑时隐藏） -->
-      <aside class="notes-sidebar" :class="{ 'is-hidden-mobile': showEditor }">
-        <!-- 顶部：新建按钮 -->
-        <button type="button" class="new-btn" @click="handleNew">
+    <!-- 顶部工具栏：搜索（次要，右上） -->
+    <div class="notes-toolbar">
+      <div v-if="searchOpen" class="search-wrap">
+        <SearchBar v-model="searchKeyword" />
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="关闭搜索"
+          @click="closeSearch"
+        >
           <svg
             viewBox="0 0 24 24"
             width="18"
@@ -142,170 +152,100 @@ onMounted(async () => {
             stroke-linejoin="round"
             aria-hidden="true"
           >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
-          <span>新建</span>
         </button>
+      </div>
+      <button
+        v-else
+        type="button"
+        class="icon-btn search-toggle"
+        aria-label="搜索便签"
+        @click="openSearch"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </button>
+    </div>
 
-        <!-- 模式切换：当日 / 全部 -->
-        <div class="mode-toggle" role="tablist" aria-label="便签列表模式">
-          <button
-            type="button"
-            role="tab"
-            :aria-selected="listMode === 'day'"
-            :class="['mode-btn', { 'is-active': listMode === 'day' }]"
-            @click="listMode = 'day'"
-          >
-            当日
-          </button>
-          <button
-            type="button"
-            role="tab"
-            :aria-selected="listMode === 'all'"
-            :class="['mode-btn', { 'is-active': listMode === 'all' }]"
-            @click="listMode = 'all'"
-          >
-            全部
-          </button>
-        </div>
+    <!-- 主要位置：便签输入框（单一，无标题） -->
+    <NoteEditor
+      :key="sessionKey"
+      :note="editingNote"
+      :date="today"
+      @created="onCreated"
+      @deleted="onDeleted"
+      @close="onCloseEditor"
+    />
 
-        <SearchBar v-model="searchKeyword" class="mt-3" />
+    <!-- 下方：全部便签列表（滚动加载） -->
+    <div class="notes-list-area">
+      <div v-if="displayNotes.length === 0" class="empty-state">
+        <svg
+          viewBox="0 0 24 24"
+          width="36"
+          height="36"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+        <p class="empty-title">
+          {{ searching ? '未找到匹配的便签' : '还没有便签' }}
+        </p>
+        <p class="empty-hint">
+          {{ searching ? '试试其他关键词' : '在上方输入框写下第一条吧' }}
+        </p>
+      </div>
 
-        <div class="sidebar-scroll">
-          <!-- 空状态：无任何便签 -->
-          <div v-if="isEmpty" class="empty-state">
-            <svg
-              viewBox="0 0 24 24"
-              width="36"
-              height="36"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
-            <p class="empty-title">还没有便签</p>
-            <p class="empty-hint">点击上方"新建"开始记录</p>
-          </div>
+      <div v-else class="note-list">
+        <button
+          v-for="note in displayNotes"
+          :key="note.id"
+          type="button"
+          class="note-row"
+          :class="{
+            'is-selected': note.id === editingNote?.id,
+            'is-archived': note.archived
+          }"
+          @click="handleOpen(note)"
+        >
+          <span class="note-row-title">{{ noteTitle(note) }}</span>
+          <span class="note-row-meta">
+            修改于 {{ noteUpdatedLabel(note) }}
+            <span v-if="note.archived" class="archived-tag">· 已归档</span>
+          </span>
+        </button>
+      </div>
 
-          <!-- 当日视图 -->
-          <template v-else-if="listMode === 'day'">
-            <div v-if="hasNoResults" class="empty-state">
-              <p class="empty-title">未找到匹配的便签</p>
-              <p class="empty-hint">试试其他关键词</p>
-            </div>
-            <div
-              v-else-if="filteredActive.length === 0 && filteredArchived.length === 0"
-              class="empty-state"
-            >
-              <p class="empty-title">这一天还没有便签</p>
-              <p class="empty-hint">点击"新建"添加一条</p>
-            </div>
-            <template v-else>
-              <div v-if="filteredActive.length > 0" class="note-list">
-                <button
-                  v-for="note in filteredActive"
-                  :key="note.id"
-                  type="button"
-                  class="note-row"
-                  :class="{
-                    'is-selected': note.id === editingId,
-                    'is-archived': note.archived
-                  }"
-                  @click="handleOpen(note)"
-                >
-                  <span class="note-row-title">{{ noteTitle(note) }}</span>
-                  <span class="note-row-meta">修改于 {{ noteUpdatedLabel(note) }}</span>
-                </button>
-              </div>
-              <div v-if="filteredArchived.length > 0" class="archived-divider">
-                已归档
-              </div>
-              <div v-if="filteredArchived.length > 0" class="note-list">
-                <button
-                  v-for="note in filteredArchived"
-                  :key="note.id"
-                  type="button"
-                  class="note-row is-archived"
-                  :class="{ 'is-selected': note.id === editingId }"
-                  @click="handleOpen(note)"
-                >
-                  <span class="note-row-title">{{ noteTitle(note) }}</span>
-                  <span class="note-row-meta">修改于 {{ noteUpdatedLabel(note) }}</span>
-                </button>
-              </div>
-            </template>
-          </template>
-
-          <!-- 全部按月分组视图 -->
-          <template v-else>
-            <div v-if="hasNoAllResults" class="empty-state">
-              <p class="empty-title">未找到匹配的便签</p>
-              <p class="empty-hint">试试其他关键词</p>
-            </div>
-            <template v-else>
-              <template v-for="group in monthGroups" :key="group.month">
-                <div class="month-label">{{ group.label }}</div>
-                <div class="note-list">
-                  <button
-                    v-for="note in group.items"
-                    :key="note.id"
-                    type="button"
-                    class="note-row"
-                    :class="{
-                      'is-selected': note.id === editingId,
-                      'is-archived': note.archived
-                    }"
-                    @click="handleOpen(note)"
-                  >
-                    <span class="note-row-title">{{ noteTitle(note) }}</span>
-                    <span class="note-row-meta">修改于 {{ noteUpdatedLabel(note) }}</span>
-                  </button>
-                </div>
-              </template>
-            </template>
-          </template>
-        </div>
-      </aside>
-
-      <!-- 右侧：编辑区（移动端未编辑时隐藏） -->
-      <div class="notes-main" :class="{ 'is-hidden-mobile': !showEditor }">
-        <NoteEditor
-          v-if="showEditor"
-          :key="sessionKey"
-          :note="editingNote"
-          :date="app.selectedDate"
-          @created="onCreated"
-          @deleted="onDeleted"
-          @close="onCloseEditor"
-        />
-        <div v-else class="editor-placeholder">
-          <svg
-            viewBox="0 0 24 24"
-            width="40"
-            height="40"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-          </svg>
-          <p class="placeholder-title">选择一个便签查看</p>
-          <p class="placeholder-hint">或点击左侧"新建"写一条</p>
-        </div>
+      <!-- 滚动加载哨兵 -->
+      <div ref="sentinelEl" class="sentinel" aria-hidden="true"></div>
+      <div v-if="searching" class="load-hint">
+        共 {{ displayNotes.length }} 条匹配
+      </div>
+      <div v-else-if="store.notesLoading" class="load-hint">加载中…</div>
+      <div v-else-if="!store.notesHasMore && displayNotes.length > 0" class="load-hint">
+        没有更多了
       </div>
     </div>
   </section>
@@ -315,102 +255,57 @@ onMounted(async () => {
 .notes-view {
   display: flex;
   flex-direction: column;
-}
-
-.notes-layout {
-  display: flex;
-  flex-direction: column;
   gap: 1rem;
 }
-@media (min-width: 768px) {
-  .notes-layout {
-    flex-direction: row;
-    align-items: flex-start;
-  }
+
+.notes-toolbar {
+  display: flex;
+  justify-content: flex-end;
 }
 
-/* 左侧列表区 */
-.notes-sidebar {
+.search-wrap {
   display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
 }
-@media (min-width: 768px) {
-  .notes-sidebar {
-    width: 340px;
-    flex-shrink: 0;
-    max-height: calc(100vh - 9rem);
-    padding: 0.25rem;
-  }
+.search-wrap :deep(.search-bar) {
+  flex: 1 1 0%;
 }
 
-.new-btn {
+.icon-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  min-height: 38px;
-  padding: 0 0.875rem;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border-radius: 0.5rem;
-  border: none;
-  background-color: var(--color-brand);
-  color: #fff;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
   cursor: pointer;
   flex-shrink: 0;
-  transition: filter 200ms ease, transform 120ms ease;
+  transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease,
+    transform 120ms ease;
 }
-.new-btn:hover {
-  filter: brightness(0.92);
-}
-.new-btn:active {
-  transform: scale(0.96);
-}
-
-.mode-toggle {
-  display: inline-flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  border-radius: 0.5rem;
-  background-color: var(--color-bg-soft);
-  border: 1px solid var(--color-border-subtle);
-  align-self: flex-start;
-}
-.mode-btn {
-  min-height: 28px;
-  padding: 0 0.875rem;
-  border-radius: 0.375rem;
-  border: none;
-  background-color: transparent;
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color 200ms ease, background-color 200ms ease;
-}
-.mode-btn.is-active {
-  background-color: var(--color-surface);
+.icon-btn:hover {
   color: var(--color-text-primary);
-  box-shadow: var(--glass-shadow);
+  border-color: var(--color-brand);
+}
+.icon-btn:active {
+  transform: scale(0.94);
+}
+.search-toggle {
+  margin-left: auto;
 }
 
-.sidebar-scroll {
+/* 列表区 */
+.notes-list-area {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  overflow-y: auto;
-  padding-right: 0.125rem;
-  min-height: 4rem;
-}
-@media (min-width: 768px) {
-  .sidebar-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
 }
 
-/* 便签列表项（紧凑） */
 .note-list {
   display: flex;
   flex-direction: column;
@@ -462,26 +357,21 @@ onMounted(async () => {
   color: var(--color-text-secondary);
   opacity: 0.8;
 }
-
-.archived-divider {
-  margin: 0.625rem 0 0.25rem;
-  padding: 0 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  color: var(--color-text-secondary);
+.archived-tag {
+  opacity: 0.85;
 }
 
-.month-label {
-  margin: 0.875rem 0 0.25rem;
-  padding: 0 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  color: var(--color-text-secondary);
+.sentinel {
+  height: 1px;
+  width: 100%;
 }
-.month-label:first-child {
-  margin-top: 0;
+
+.load-hint {
+  text-align: center;
+  padding: 0.75rem 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
 }
 
 /* 空状态 */
@@ -491,7 +381,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   padding: 2rem 1rem;
   border-radius: 0.75rem;
   background-color: var(--color-surface);
@@ -508,53 +398,5 @@ onMounted(async () => {
 .empty-hint {
   margin: 0;
   font-size: 0.8rem;
-}
-
-/* 右侧编辑区 */
-.notes-main {
-  flex: 1 1 0%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-@media (min-width: 768px) {
-  .notes-main {
-    min-height: calc(100vh - 9rem);
-  }
-}
-
-.editor-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 3rem 1.5rem;
-  border-radius: 0.75rem;
-  background-color: var(--color-surface);
-  border: 1px dashed var(--color-border);
-  color: var(--color-text-secondary);
-  text-align: center;
-  min-height: 16rem;
-}
-.placeholder-title {
-  margin: 0.5rem 0 0;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-.placeholder-hint {
-  margin: 0;
-  font-size: 0.85rem;
-}
-
-/* 移动端：编辑器与列表互斥显示 */
-.is-hidden-mobile {
-  display: none;
-}
-@media (min-width: 768px) {
-  .is-hidden-mobile {
-    display: flex;
-  }
 }
 </style>

@@ -1,68 +1,44 @@
 // 便签 store（Pinia setup 风格）
 // 关键行为：
 // 1. 空内容不保存：新建不入库，输入后才落库；已落库的清空后删除（由编辑器层判定并调用 create/update/delete）
-// 2. 归档：归档后置底，次日不再显示（当日列表只取 date===当日 的归档项）
+// 2. 归档：归档后置底；列表展示时归档项透明度降低
 // 3. 未归档滚动：加载时把 date < 今天 的未归档便签滚动到今天，满足"未归档一直显示当天"
-// 4. 按月分组浏览：全部便签按 date 的年月分组
+// 4. 列表分页：按 updated_at DESC 滚动加载（100 条/批）；搜索时全量内存过滤
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { Note } from '@/types'
 import { getStorage } from '@/utils/storage'
 import { todayStr } from '@/utils/time'
 
+/** 分页每批数量 */
+const PAGE_SIZE = 100
+
 export const useNoteStore = defineStore('note', () => {
-  /** 全部便签 */
+  /** 全部便签（全量内存，供搜索过滤与日历日期标记） */
   const notes = ref<Note[]>([])
-  /** 搜索关键字（仅用于"全部"浏览模式过滤） */
+  /** 搜索关键字（搜索时全量内存过滤；为空时列表用分页） */
   const searchKeyword = ref<string>('')
 
-  /** 当日未归档便签（按 created_at 升序） */
-  function dayActive(date: string): Note[] {
-    return notes.value
-      .filter((n) => n.date === date && !n.archived)
-      .sort((a, b) => a.created_at - b.created_at)
-  }
+  /** 分页列表（按 updated_at DESC） */
+  const pagedNotes = ref<Note[]>([])
+  const notesOffset = ref<number>(0)
+  const notesHasMore = ref<boolean>(true)
+  const notesLoading = ref<boolean>(false)
 
-  /** 当日已归档便签（按 archived_at 升序） */
-  function dayArchived(date: string): Note[] {
-    return notes.value
-      .filter((n) => n.date === date && n.archived)
-      .sort((a, b) => (a.archived_at ?? 0) - (b.archived_at ?? 0))
-  }
-
-  /** 全部便签按月分组（受搜索关键字过滤；未归档在前，归档置底；组内按 updated_at 降序） */
-  const groupedByMonth = computed(() => {
+  /** 搜索结果（关键字非空时全量内存过滤；未归档在前，归档置底） */
+  const searchResults = computed(() => {
     const kw = searchKeyword.value.trim().toLowerCase()
-    const filtered = kw
-      ? notes.value.filter(
-          (n) =>
-            n.title.toLowerCase().includes(kw) ||
-            n.content.toLowerCase().includes(kw)
-        )
-      : notes.value.slice()
-    const sorted = [...filtered].sort((a, b) => {
-      if (a.archived !== b.archived) return a.archived ? 1 : -1
-      return b.updated_at - a.updated_at
-    })
-    const groups: { month: string; label: string; items: Note[] }[] = []
-    for (const n of sorted) {
-      const month = n.date.slice(0, 7)
-      let g = groups.find((x) => x.month === month)
-      if (!g) {
-        const [y, m] = month.split('-').map(Number)
-        g = {
-          month,
-          label: new Intl.DateTimeFormat('zh-CN', {
-            year: 'numeric',
-            month: 'long'
-          }).format(new Date(y, (m || 1) - 1, 1)),
-          items: []
-        }
-        groups.push(g)
-      }
-      g.items.push(n)
-    }
-    return groups
+    if (!kw) return []
+    return notes.value
+      .filter(
+        (n) =>
+          n.title.toLowerCase().includes(kw) ||
+          n.content.toLowerCase().includes(kw)
+      )
+      .sort((a, b) => {
+        if (a.archived !== b.archived) return a.archived ? 1 : -1
+        return b.updated_at - a.updated_at
+      })
   })
 
   /** 有便签的日期集合（用于全局日历标记） */
@@ -71,7 +47,7 @@ export const useNoteStore = defineStore('note', () => {
     return Array.from(set).sort()
   })
 
-  /** 加载全部便签，并把过去日期的未归档便签滚动到今天 */
+  /** 加载全量便签（供搜索/日历标记），并把过去日期的未归档便签滚动到今天 */
   async function loadNotes(): Promise<void> {
     notes.value = await getStorage().getAllNotes()
     await rolloverToToday()
@@ -85,6 +61,28 @@ export const useNoteStore = defineStore('note', () => {
       const updated = await getStorage().updateNote(n.id, { date: today })
       const idx = notes.value.findIndex((x) => x.id === n.id)
       if (idx !== -1) notes.value[idx] = updated
+    }
+  }
+
+  /** 加载分页便签列表；reset=true 时重置从头加载 */
+  async function loadNotesPage(reset = false): Promise<void> {
+    if (notesLoading.value) return
+    if (reset) {
+      pagedNotes.value = []
+      notesOffset.value = 0
+      notesHasMore.value = true
+    }
+    if (!notesHasMore.value) return
+    notesLoading.value = true
+    try {
+      const batch = await getStorage().getNotesPage(PAGE_SIZE, notesOffset.value)
+      pagedNotes.value = reset ? batch : [...pagedNotes.value, ...batch]
+      notesOffset.value += batch.length
+      notesHasMore.value = batch.length === PAGE_SIZE
+    } catch (err) {
+      console.error('[qingji] 加载便签分页失败：', err)
+    } finally {
+      notesLoading.value = false
     }
   }
 
@@ -132,11 +130,13 @@ export const useNoteStore = defineStore('note', () => {
   return {
     notes,
     searchKeyword,
-    dayActive,
-    dayArchived,
-    groupedByMonth,
+    pagedNotes,
+    notesHasMore,
+    notesLoading,
+    searchResults,
     noteDates,
     loadNotes,
+    loadNotesPage,
     createNote,
     updateNote,
     deleteNote,

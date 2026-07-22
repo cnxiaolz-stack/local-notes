@@ -2,6 +2,7 @@
 // 便签内联卡片编辑器：
 // - note 为 null 时为"新建草稿态"：内容非空才落库（createNote），全程空白则不保存
 // - note 非 null 时为"编辑态"：清空内容则删除该条（deleteNote），非空则更新
+// - 单一 content 输入框（无标题）；存储层 title 恒写空字符串以保持 schema 兼容
 // - debounce 800ms 自动保存；归档按钮 toggle；显示创建/修改时间
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Note } from '@/types'
@@ -22,9 +23,7 @@ const currentNote = ref<Note | null>(props.note)
 /** 新建落库使用的日期（挂载时捕获，避免切日期后错乱） */
 const capturedDate = ref<string>(props.date)
 
-const titleDraft = ref<string>(props.note?.title ?? '')
 const contentDraft = ref<string>(props.note?.content ?? '')
-const titleRef = ref<HTMLInputElement | null>(null)
 const contentRef = ref<HTMLTextAreaElement | null>(null)
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
@@ -32,7 +31,6 @@ const saveStatus = ref<SaveStatus>('idle')
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let savedTimer: ReturnType<typeof setTimeout> | null = null
-let lastSavedTitle = props.note?.title ?? ''
 let lastSavedContent = props.note?.content ?? ''
 
 const saveLabel = computed(() => {
@@ -57,12 +55,7 @@ const updatedLabel = computed(() =>
 
 onMounted(() => {
   autoGrow()
-  // 新建态聚焦正文；编辑态若有标题则聚焦正文，否则聚焦标题
-  if (!currentNote.value || titleDraft.value) {
-    contentRef.value?.focus()
-  } else {
-    titleRef.value?.focus()
-  }
+  contentRef.value?.focus()
 })
 
 onBeforeUnmount(() => {
@@ -89,33 +82,31 @@ function scheduleSave(): void {
   }, 800)
 }
 
-function isEmpty(title: string, content: string): boolean {
-  return !title.trim() && !content.trim()
+function isEmpty(content: string): boolean {
+  return !content.trim()
 }
 
 async function doSave(): Promise<void> {
   debounceTimer = null
-  const title = titleDraft.value
   const content = contentDraft.value
 
   if (!currentNote.value) {
     // 新建草稿态：空内容不保存
-    if (isEmpty(title, content)) {
+    if (isEmpty(content)) {
       saveStatus.value = 'idle'
       return
     }
-    if (title === lastSavedTitle && content === lastSavedContent) {
+    if (content === lastSavedContent) {
       saveStatus.value = 'idle'
       return
     }
     try {
       const created = await store.createNote({
-        title,
+        title: '',
         content,
         date: capturedDate.value
       })
       currentNote.value = created
-      lastSavedTitle = title
       lastSavedContent = content
       saveStatus.value = 'saved'
       emit('created', created)
@@ -128,7 +119,7 @@ async function doSave(): Promise<void> {
   }
 
   // 已落库态：清空内容则删除该条
-  if (isEmpty(title, content)) {
+  if (isEmpty(content)) {
     try {
       await store.deleteNote(currentNote.value.id)
       emit('deleted', currentNote.value.id)
@@ -141,14 +132,13 @@ async function doSave(): Promise<void> {
     return
   }
 
-  if (title === lastSavedTitle && content === lastSavedContent) {
+  if (content === lastSavedContent) {
     saveStatus.value = 'idle'
     return
   }
   try {
-    const updated = await store.updateNote(currentNote.value.id, { title, content })
+    const updated = await store.updateNote(currentNote.value.id, { title: '', content })
     currentNote.value = updated
-    lastSavedTitle = title
     lastSavedContent = content
     saveStatus.value = 'saved'
     scheduleSavedReset()
@@ -174,20 +164,9 @@ function flushSave(): void {
   }
 }
 
-function onTitleInput(): void {
-  scheduleSave()
-}
-
 function onContentInput(): void {
   scheduleSave()
   autoGrow()
-}
-
-function onTitleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    contentRef.value?.focus()
-  }
 }
 
 function handleClose(): void {
@@ -239,17 +218,6 @@ async function handleToggleArchive(): Promise<void> {
         </svg>
       </button>
     </div>
-
-    <input
-      ref="titleRef"
-      v-model="titleDraft"
-      type="text"
-      class="editor-title"
-      placeholder="标题（可选）"
-      autocomplete="off"
-      @input="onTitleInput"
-      @keydown="onTitleKeydown"
-    />
 
     <textarea
       ref="contentRef"
@@ -377,32 +345,13 @@ async function handleToggleArchive(): Promise<void> {
   }
 }
 
-.editor-title {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 0.25rem 1rem 0.375rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--color-text-primary);
-  background-color: transparent;
-  border: none;
-  outline: none;
-}
-.editor-title::placeholder {
-  color: var(--color-text-secondary);
-  opacity: 0.6;
-  font-weight: 500;
-}
-
 .editor-content {
   display: block;
   width: 100%;
   min-height: 120px;
   max-height: 320px;
   margin: 0;
-  padding: 0.25rem 1rem 0.75rem;
+  padding: 0.5rem 1rem 0.75rem;
   font-size: 0.95rem;
   line-height: 1.6;
   color: var(--color-text-primary);

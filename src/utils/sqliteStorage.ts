@@ -244,6 +244,14 @@ export class SQLiteStorage implements StorageAdapter {
     return rows.map(rowToNote)
   }
 
+  async getNotesPage(limit: number, offset: number): Promise<Note[]> {
+    const rows = await this.getDb().select<NoteRow[]>(
+      'SELECT * FROM notes ORDER BY updated_at DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
+    )
+    return rows.map(rowToNote)
+  }
+
   async getNotesByDate(date: string): Promise<Note[]> {
     const rows = await this.getDb().select<NoteRow[]>(
       'SELECT * FROM notes WHERE date = $1 ORDER BY created_at ASC',
@@ -338,6 +346,14 @@ export class SQLiteStorage implements StorageAdapter {
   async getAllDiaries(): Promise<Diary[]> {
     const rows = await this.getDb().select<DiaryRow[]>(
       'SELECT * FROM diaries ORDER BY date DESC'
+    )
+    return rows.map(rowToDiary)
+  }
+
+  async getDiariesPage(limit: number, offset: number): Promise<Diary[]> {
+    const rows = await this.getDb().select<DiaryRow[]>(
+      'SELECT * FROM diaries ORDER BY date DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
     )
     return rows.map(rowToDiary)
   }

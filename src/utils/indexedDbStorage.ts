@@ -128,6 +128,15 @@ export class IndexedDbStorage implements StorageAdapter {
     return getDb().notes.orderBy('updated_at').reverse().toArray()
   }
 
+  async getNotesPage(limit: number, offset: number): Promise<Note[]> {
+    return getDb()
+      .notes.orderBy('updated_at')
+      .reverse()
+      .offset(offset)
+      .limit(limit)
+      .toArray()
+  }
+
   async getNotesByDate(date: string): Promise<Note[]> {
     const items = await getDb().notes.where('date').equals(date).toArray()
     return items.sort((a, b) => a.created_at - b.created_at)
@@ -181,6 +190,16 @@ export class IndexedDbStorage implements StorageAdapter {
   async getAllDiaries(): Promise<Diary[]> {
     const items = await getDb().diaries.toArray()
     return items.sort((a, b) => (a.date < b.date ? 1 : -1))
+  }
+
+  async getDiariesPage(limit: number, offset: number): Promise<Diary[]> {
+    // diaries 主键即 date，orderBy('date') 倒序
+    return getDb()
+      .diaries.orderBy('date')
+      .reverse()
+      .offset(offset)
+      .limit(limit)
+      .toArray()
   }
 
   async upsertDiary(

@@ -15,9 +15,9 @@ const pageTitle = computed(() => {
   return found?.title ?? '轻记'
 })
 
-// 仅在今日/便签/日记三页显示全局日历按钮（设置页不需要选日期）
+// 仅在今日/日记页显示全局日历按钮（便签页列表不再按日期过滤，无需日历）
 const showDatePicker = computed(() =>
-  ['today', 'notes', 'diary'].includes(String(route.name ?? ''))
+  ['today', 'diary'].includes(String(route.name ?? ''))
 )
 </script>
 
