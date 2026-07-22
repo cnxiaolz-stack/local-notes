@@ -1,45 +1,77 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="50%" stop-color="#8b5cf6"/>
-      <stop offset="100%" stop-color="#a855f7"/>
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="55%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#6366f1"/>
     </linearGradient>
-    <linearGradient id="paper" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#f5f3ff" stop-opacity="0.9"/>
+    <linearGradient id="feather" x1="20%" y1="10%" x2="80%" y2="90%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98"/>
+      <stop offset="60%" stop-color="#e0f2fe" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#bae6fd" stop-opacity="0.92"/>
     </linearGradient>
-    <linearGradient id="fold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#c7d2fe" stop-opacity="0.85"/>
-      <stop offset="100%" stop-color="#a5b4fc" stop-opacity="0.8"/>
+    <linearGradient id="tip" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
     </linearGradient>
-    <radialGradient id="glow" cx="28%" cy="22%" r="55%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45"/>
+    <radialGradient id="glow" cx="30%" cy="22%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32"/>
       <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
-  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="url(#bg)"/>
+  <!-- 蓝青渐变圆角底 -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
 
-  <path d="
-    M 312 300
-    L 632 300
-    L 762 430
-    L 762 710
-    Q 762 760 712 760
-    L 312 760
-    Q 262 760 262 710
-    L 262 350
-    Q 262 300 312 300
-    Z
-  " fill="url(#paper)"/>
+  <!-- 羽毛主体（向左下倾斜的椭圆形叶片） -->
+  <g transform="rotate(-32 512 512)">
+    <!-- 羽毛外轮廓：上窄下宽的水滴形 -->
+    <path d="
+      M 512 220
+      Q 600 340 612 470
+      Q 622 590 580 690
+      Q 540 780 470 820
+      Q 410 850 372 812
+      Q 340 780 350 720
+      Q 362 640 410 540
+      Q 460 440 512 220
+      Z
+    " fill="url(#feather)"/>
 
-  <path d="M 632 300 L 632 430 L 762 430 Z" fill="url(#fold)"/>
-  <path d="M 632 300 L 632 430 L 762 430" fill="none" stroke="#6366f1" stroke-opacity="0.18" stroke-width="3" stroke-linejoin="round"/>
+    <!-- 羽毛主轴（中央梗） -->
+    <path d="M 510 232 Q 470 470 432 690 Q 410 770 384 808" fill="none" stroke="#0ea5e9" stroke-opacity="0.28" stroke-width="6" stroke-linecap="round"/>
 
-  <line x1="312" y1="500" x2="662" y2="500" stroke="#a5b4fc" stroke-opacity="0.55" stroke-width="14" stroke-linecap="round"/>
-  <line x1="312" y1="570" x2="712" y2="570" stroke="#a5b4fc" stroke-opacity="0.45" stroke-width="14" stroke-linecap="round"/>
-  <line x1="312" y1="640" x2="612" y2="640" stroke="#a5b4fc" stroke-opacity="0.35" stroke-width="14" stroke-linecap="round"/>
+    <!-- 羽枝纹理（左侧斜线） -->
+    <g stroke="#0ea5e9" stroke-opacity="0.22" stroke-width="3" stroke-linecap="round" fill="none">
+      <line x1="498" y1="290" x2="452" y2="318"/>
+      <line x1="492" y1="340" x2="438" y2="372"/>
+      <line x1="486" y1="392" x2="424" y2="428"/>
+      <line x1="478" y1="446" x2="410" y2="486"/>
+      <line x1="470" y1="500" x2="396" y2="544"/>
+      <line x1="460" y1="554" x2="382" y2="600"/>
+      <line x1="448" y1="606" x2="370" y2="654"/>
+      <line x1="434" y1="656" x2="358" y2="704"/>
+    </g>
 
-  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="url(#glow)"/>
+    <!-- 羽枝纹理（右侧斜线） -->
+    <g stroke="#0ea5e9" stroke-opacity="0.18" stroke-width="3" stroke-linecap="round" fill="none">
+      <line x1="528" y1="300" x2="566" y2="332"/>
+      <line x1="534" y1="350" x2="580" y2="386"/>
+      <line x1="540" y1="402" x2="592" y2="440"/>
+      <line x1="544" y1="456" x2="600" y2="496"/>
+      <line x1="546" y1="510" x2="604" y2="552"/>
+      <line x1="544" y1="564" x2="600" y2="606"/>
+      <line x1="538" y1="618" x2="588" y2="658"/>
+      <line x1="528" y1="670" x2="568" y2="706"/>
+    </g>
+
+    <!-- 金黄色笔尖（羽毛下端的三角形） -->
+    <path d="M 384 808 L 412 824 L 360 856 Z" fill="url(#tip)"/>
+    <path d="M 384 808 L 412 824 L 360 856 Z" fill="none" stroke="#b45309" stroke-opacity="0.35" stroke-width="2" stroke-linejoin="round"/>
+    <!-- 笔尖中央分缝 -->
+    <line x1="386" y1="820" x2="372" y2="848" stroke="#92400e" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- 顶部柔和高光 -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#glow)"/>
 </svg>

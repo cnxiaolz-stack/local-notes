@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
+import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import { navItems } from '@/components/navItems'
 </script>
 
@@ -10,12 +11,7 @@ import { navItems } from '@/components/navItems'
     style="background-color: var(--color-surface-strong); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border-right: 1px solid var(--color-border-subtle)"
   >
     <div class="flex items-center gap-2.5 px-5 py-5">
-      <div
-        class="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-semibold text-white"
-        style="background-color: var(--color-brand)"
-      >
-        轻
-      </div>
+      <img src="/favicon.svg" alt="轻记" class="h-8 w-8 rounded-lg" />
       <span class="text-lg font-semibold" style="color: var(--color-text-primary)">轻记</span>
     </div>
 
@@ -30,5 +26,9 @@ import { navItems } from '@/components/navItems'
         <span>{{ item.label }}</span>
       </RouterLink>
     </nav>
+
+    <div class="px-3 pb-4 pt-2">
+      <ThemeSwitcher />
+    </div>
   </aside>
 </template>

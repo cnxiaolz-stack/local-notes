@@ -2,40 +2,162 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== 玻璃质感主题 CSS 变量 ===== */
+/* ============================================================
+   轻记 QingJi · 多主题系统
+   通过 <html data-theme="xxx"> 切换，6 套预设主题：
+     minimal   纯白极简 Notion 风
+     paper     暖纸书卷
+     ink       墨黑沉静（深色）
+     mint      清新薄荷
+     morandi   莫兰迪灰调
+     sunlit    暖阳橙白
+   ============================================================ */
+
 :root {
-  --color-bg: transparent;
-  --color-surface: rgba(255, 255, 255, 0.65);
-  --color-surface-strong: rgba(255, 255, 255, 0.85);
-  --color-border: rgba(255, 255, 255, 0.6);
-  --color-border-subtle: rgba(255, 255, 255, 0.35);
-  --color-text-primary: #1e1b2e;
+  /* 默认值 = minimal 主题，避免 FOUC */
+  --color-bg: #ffffff;
+  --color-bg-soft: #f9fafb;
+  --color-surface: #ffffff;
+  --color-surface-strong: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-subtle: #f3f4f6;
+  --color-text-primary: #111827;
   --color-text-secondary: #6b7280;
-  --color-brand: #6366f1;
-  --color-brand-soft: rgba(99, 102, 241, 0.12);
-  --color-accent: #8b5cf6;
-  --glass-blur: 16px;
-  --glass-shadow: 0 8px 32px rgba(99, 102, 241, 0.12);
-  --glass-shadow-hover: 0 12px 40px rgba(99, 102, 241, 0.18);
+  --color-brand: #111827;
+  --color-brand-soft: rgba(17, 24, 39, 0.06);
+  --color-accent: #4f46e5;
+  --color-on-brand: #ffffff;
+  --glass-blur: 0px;
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --glass-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --body-bg: #ffffff;
 }
 
-.dark {
-  --color-bg: transparent;
-  --color-surface: rgba(30, 27, 50, 0.55);
-  --color-surface-strong: rgba(30, 27, 50, 0.75);
-  --color-border: rgba(255, 255, 255, 0.12);
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-text-primary: #f4f4f5;
-  --color-text-secondary: #a1a1aa;
-  --color-brand: #818cf8;
-  --color-brand-soft: rgba(129, 140, 248, 0.15);
-  --color-accent: #a78bfa;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.4);
+/* ---------- 主题 1：minimal 纯白极简（Notion 风） ---------- */
+[data-theme="minimal"] {
+  --color-bg: #ffffff;
+  --color-bg-soft: #f9fafb;
+  --color-surface: #ffffff;
+  --color-surface-strong: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-subtle: #f3f4f6;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-brand: #111827;
+  --color-brand-soft: rgba(17, 24, 39, 0.06);
+  --color-accent: #4f46e5;
+  --color-on-brand: #ffffff;
+  --glass-blur: 0px;
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --glass-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --body-bg: #ffffff;
+}
+
+/* ---------- 主题 2：paper 暖纸书卷 ---------- */
+[data-theme="paper"] {
+  --color-bg: #faf6ef;
+  --color-bg-soft: #f3ece0;
+  --color-surface: #fffdf8;
+  --color-surface-strong: #fffdf8;
+  --color-border: #e8ddc7;
+  --color-border-subtle: #f0e6d2;
+  --color-text-primary: #3d2f1f;
+  --color-text-secondary: #8a7558;
+  --color-brand: #a0522d;
+  --color-brand-soft: rgba(160, 82, 45, 0.1);
+  --color-accent: #c0392b;
+  --color-on-brand: #fffaf0;
+  --glass-blur: 0px;
+  --glass-shadow: 0 1px 3px rgba(160, 82, 45, 0.08);
+  --glass-shadow-hover: 0 3px 8px rgba(160, 82, 45, 0.12);
+  --body-bg: #faf6ef;
+}
+
+/* ---------- 主题 3：ink 墨黑沉静（深色） ---------- */
+[data-theme="ink"] {
+  --color-bg: #0f172a;
+  --color-bg-soft: #1e293b;
+  --color-surface: #1e293b;
+  --color-surface-strong: #243049;
+  --color-border: #334155;
+  --color-border-subtle: #1e293b;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-brand: #fbbf24;
+  --color-brand-soft: rgba(251, 191, 36, 0.12);
+  --color-accent: #f59e0b;
+  --color-on-brand: #0f172a;
+  --glass-blur: 0px;
+  --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --glass-shadow-hover: 0 3px 8px rgba(0, 0, 0, 0.4);
+  --body-bg: #0f172a;
+}
+
+/* ---------- 主题 4：mint 清新薄荷 ---------- */
+[data-theme="mint"] {
+  --color-bg: #f0fdf4;
+  --color-bg-soft: #dcfce7;
+  --color-surface: #ffffff;
+  --color-surface-strong: #ffffff;
+  --color-border: #d1fae5;
+  --color-border-subtle: #ecfdf5;
+  --color-text-primary: #064e3b;
+  --color-text-secondary: #4b5563;
+  --color-brand: #059669;
+  --color-brand-soft: rgba(5, 150, 105, 0.1);
+  --color-accent: #10b981;
+  --color-on-brand: #ffffff;
+  --glass-blur: 0px;
+  --glass-shadow: 0 1px 3px rgba(5, 150, 105, 0.08);
+  --glass-shadow-hover: 0 3px 8px rgba(5, 150, 105, 0.12);
+  --body-bg: #f0fdf4;
+}
+
+/* ---------- 主题 5：morandi 莫兰迪灰调 ---------- */
+[data-theme="morandi"] {
+  --color-bg: #e8e4dc;
+  --color-bg-soft: #ddd8cd;
+  --color-surface: #f4f1ea;
+  --color-surface-strong: #f7f4ed;
+  --color-border: #c9c3b6;
+  --color-border-subtle: #d8d3c5;
+  --color-text-primary: #4a463f;
+  --color-text-secondary: #8b8478;
+  --color-brand: #7c8a8a;
+  --color-brand-soft: rgba(124, 138, 138, 0.14);
+  --color-accent: #a08c7c;
+  --color-on-brand: #f7f4ed;
+  --glass-blur: 0px;
+  --glass-shadow: 0 1px 3px rgba(74, 70, 63, 0.08);
+  --glass-shadow-hover: 0 3px 8px rgba(74, 70, 63, 0.12);
+  --body-bg: #e8e4dc;
+}
+
+/* ---------- 主题 6：sunlit 暖阳橙白 ---------- */
+[data-theme="sunlit"] {
+  --color-bg: #fffaf5;
+  --color-bg-soft: #fff1e6;
+  --color-surface: #ffffff;
+  --color-surface-strong: #ffffff;
+  --color-border: #fed7aa;
+  --color-border-subtle: #ffedd5;
+  --color-text-primary: #7c2d12;
+  --color-text-secondary: #9a5230;
+  --color-brand: #ea580c;
+  --color-brand-soft: rgba(234, 88, 12, 0.1);
+  --color-accent: #f59e0b;
+  --color-on-brand: #ffffff;
+  --glass-blur: 0px;
+  --glass-shadow: 0 1px 3px rgba(234, 88, 12, 0.1);
+  --glass-shadow-hover: 0 3px 8px rgba(234, 88, 12, 0.16);
+  --body-bg: #fffaf5;
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+[data-theme="ink"] {
+  color-scheme: dark;
 }
 
 html,
@@ -46,24 +168,18 @@ body,
 }
 
 body {
-  /* 柔和蓝紫粉渐变背景，玻璃质感的底色 */
-  background-image: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 50%, #fce7f3 100%);
-  background-attachment: fixed;
+  background-color: var(--body-bg);
   color: var(--color-text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-.dark body {
-  /* 深色模式：深蓝紫渐变 */
-  background-image: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+  transition: background-color 240ms ease, color 240ms ease;
 }
 
 @layer components {
-  /* 顶部页头：页面标题 + 当前日期（玻璃质感） */
+  /* 顶部页头：页面标题 + 当前日期 */
   .app-header {
     display: flex;
     align-items: center;
@@ -81,6 +197,7 @@ body {
   .app-main {
     @apply flex-1 overflow-y-auto px-6 py-8;
     padding-bottom: 5.5rem;
+    background-color: var(--body-bg);
   }
 
   @media (min-width: 768px) {
@@ -89,7 +206,7 @@ body {
     }
   }
 
-  /* 卡片：玻璃质感 — 半透明 + 模糊 + 光晕边 + 柔和阴影 */
+  /* 卡片：表面色 + 边框 + 柔和阴影 */
   .card {
     @apply rounded-2xl p-5;
     background-color: var(--color-surface);
@@ -97,7 +214,8 @@ body {
     -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--color-border);
     box-shadow: var(--glass-shadow);
-    transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+    transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease,
+      background-color 240ms ease;
   }
   .card:hover {
     box-shadow: var(--glass-shadow-hover);
@@ -118,7 +236,7 @@ body {
     font-weight: 500;
   }
 
-  /* 移动端底部 Tab 栏（玻璃质感） */
+  /* 移动端底部 Tab 栏 */
   .tabbar {
     @apply fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around;
     background-color: var(--color-surface);
@@ -136,15 +254,31 @@ body {
   }
 }
 
-/* 玻璃质感滚动条 */
+/* 主题切换时的全局过渡（仅对颜色相关属性） */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 240ms ease, color 240ms ease,
+    border-color 240ms ease, box-shadow 240ms ease !important;
+}
+
+/* 滚动条 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-brand-soft);
+  background-color: var(--color-border);
   border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-secondary);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* 选中文本配色 */
+::selection {
+  background-color: var(--color-brand-soft);
+  color: var(--color-text-primary);
 }
