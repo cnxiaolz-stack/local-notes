@@ -38,3 +38,6 @@ src-tauri/icons/*
 !src-tauri/icons/.gitkeep
 .pnpm-store/
 dev-dist/
+
+# 黑体字形文件较大，不纳入版本控制；运行 gen-icons.mjs 前手动放置
+scripts/fonts/*.ttf

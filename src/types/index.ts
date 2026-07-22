@@ -16,6 +16,8 @@ export interface Task {
   updated_at: number
   /** 排序 */
   order: number
+  /** 圆圈颜色（hex，新建时从预设色板随机取） */
+  color?: string
 }
 
 /** 便签 */
@@ -30,6 +32,12 @@ export interface Note {
   created_at: number
   /** 更新时间戳(ms) */
   updated_at: number
+  /** YYYY-MM-DD 归属日期（= 创建当天的日期） */
+  date: string
+  /** 是否归档 */
+  archived: boolean
+  /** 归档时间戳(ms)，未归档时为 null */
+  archived_at: number | null
 }
 
 /** 日记（一天一篇，主键为 date） */
@@ -56,4 +64,19 @@ export interface BackupData {
   notes: Note[]
   /** 全部日记 */
   diaries: Diary[]
+}
+
+/** 任务圆圈预设色板 */
+export const TASK_COLORS = [
+  '#3b82f6', // 蓝
+  '#10b981', // 翠绿
+  '#f59e0b', // 琥珀
+  '#ec4899', // 玫红
+  '#8b5cf6', // 紫
+  '#06b6d4'  // 青
+]
+
+/** 随机取一个任务颜色 */
+export function randomTaskColor(): string {
+  return TASK_COLORS[Math.floor(Math.random() * TASK_COLORS.length)]
 }

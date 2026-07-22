@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import SideNav from '@/components/SideNav.vue'
 import BottomTabBar from '@/components/BottomTabBar.vue'
+import DatePickerButton from '@/components/common/DatePickerButton.vue'
 import { navItems } from '@/components/navItems'
 
 const route = useRoute()
@@ -14,12 +15,10 @@ const pageTitle = computed(() => {
   return found?.title ?? '轻记'
 })
 
-const todayLabel = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-  weekday: 'long'
-}).format(new Date())
+// 仅在今日/便签/日记三页显示全局日历按钮（设置页不需要选日期）
+const showDatePicker = computed(() =>
+  ['today', 'notes', 'diary'].includes(String(route.name ?? ''))
+)
 </script>
 
 <template>
@@ -31,9 +30,7 @@ const todayLabel = new Intl.DateTimeFormat('zh-CN', {
         <h1 class="text-xl font-semibold" style="color: var(--color-text-primary)">
           {{ pageTitle }}
         </h1>
-        <span class="text-sm" style="color: var(--color-text-secondary)">
-          {{ todayLabel }}
-        </span>
+        <DatePickerButton v-if="showDatePicker" />
       </header>
 
       <main class="app-main">

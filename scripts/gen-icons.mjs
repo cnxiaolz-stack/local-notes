@@ -1,94 +1,54 @@
-// 生成"轻记"应用图标：羽毛笔尖（方案 I-3）
+// 生成"轻记"应用图标：纯白底 + 黑体"记"字 + 蓝色下划线点缀
 // 运行：node scripts/gen-icons.mjs
-// 依赖：@resvg/resvg-js（将 SVG 渲染为 PNG）
+// 依赖：@resvg/resvg-js（将 SVG 渲染为 PNG）；scripts/fonts/SimHei.ttf（黑体字形）
+//
+// 设计要点（对应交互重构方案 G）：
+// - 1024×1024 画布，圆角矩形底（rx=228），纯白背景（与极简主题一致）
+// - 中央大字"记"，黑体风格（SimHei，不太尖锐），深灰黑 #111827
+// - 底部一抹品牌蓝下划线（#3b82f6）增加设计感
 import { Resvg } from '@resvg/resvg-js'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const fontPath = join(__dirname, 'fonts', 'SimHei.ttf')
+
+if (!existsSync(fontPath)) {
+  console.error(`✗ 缺少黑体字体文件：${fontPath}`)
+  console.error('  请放置 SimHei.ttf 到 scripts/fonts/ 后重试。')
+  console.error('  下载参考：https://cdn.jsdelivr.net/gh/ichitenfont/simhei.font/SimHei.ttf')
+  process.exit(1)
+}
+
+// 字体族名（SVG 中引用；resvg 会用加载的 SimHei.ttf 渲染）
+const FONT_FAMILY = "SimHei, 'PingFang SC', 'Microsoft YaHei', 'Heiti SC', sans-serif"
 
 // 图标 SVG 设计（1024×1024 画布）
-// 元素：① 蓝青渐变圆角底 ② 白色羽毛（带羽枝纹理）③ 金黄色笔尖 ④ 高光
 function iconSVG() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0ea5e9"/>
-      <stop offset="55%" stop-color="#2563eb"/>
-      <stop offset="100%" stop-color="#6366f1"/>
-    </linearGradient>
-    <linearGradient id="feather" x1="20%" y1="10%" x2="80%" y2="90%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98"/>
-      <stop offset="60%" stop-color="#e0f2fe" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#bae6fd" stop-opacity="0.92"/>
-    </linearGradient>
-    <linearGradient id="tip" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#fde68a"/>
-      <stop offset="100%" stop-color="#f59e0b"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="30%" cy="22%" r="55%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
+  <!-- 纯白圆角底 -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="#ffffff"/>
 
-  <!-- 蓝青渐变圆角底 -->
-  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
+  <!-- 中央"记"字（黑体，深灰黑） -->
+  <text x="512" y="512" text-anchor="middle" dominant-baseline="central"
+        font-family="${FONT_FAMILY}" font-size="600" font-weight="700"
+        fill="#111827">记</text>
 
-  <!-- 羽毛主体（向左下倾斜的椭圆形叶片） -->
-  <g transform="rotate(-32 512 512)">
-    <!-- 羽毛外轮廓：上窄下宽的水滴形 -->
-    <path d="
-      M 512 220
-      Q 600 340 612 470
-      Q 622 590 580 690
-      Q 540 780 470 820
-      Q 410 850 372 812
-      Q 340 780 350 720
-      Q 362 640 410 540
-      Q 460 440 512 220
-      Z
-    " fill="url(#feather)"/>
-
-    <!-- 羽毛主轴（中央梗） -->
-    <path d="M 510 232 Q 470 470 432 690 Q 410 770 384 808" fill="none" stroke="#0ea5e9" stroke-opacity="0.28" stroke-width="6" stroke-linecap="round"/>
-
-    <!-- 羽枝纹理（左侧斜线） -->
-    <g stroke="#0ea5e9" stroke-opacity="0.22" stroke-width="3" stroke-linecap="round" fill="none">
-      <line x1="498" y1="290" x2="452" y2="318"/>
-      <line x1="492" y1="340" x2="438" y2="372"/>
-      <line x1="486" y1="392" x2="424" y2="428"/>
-      <line x1="478" y1="446" x2="410" y2="486"/>
-      <line x1="470" y1="500" x2="396" y2="544"/>
-      <line x1="460" y1="554" x2="382" y2="600"/>
-      <line x1="448" y1="606" x2="370" y2="654"/>
-      <line x1="434" y1="656" x2="358" y2="704"/>
-    </g>
-
-    <!-- 羽枝纹理（右侧斜线） -->
-    <g stroke="#0ea5e9" stroke-opacity="0.18" stroke-width="3" stroke-linecap="round" fill="none">
-      <line x1="528" y1="300" x2="566" y2="332"/>
-      <line x1="534" y1="350" x2="580" y2="386"/>
-      <line x1="540" y1="402" x2="592" y2="440"/>
-      <line x1="544" y1="456" x2="600" y2="496"/>
-      <line x1="546" y1="510" x2="604" y2="552"/>
-      <line x1="544" y1="564" x2="600" y2="606"/>
-      <line x1="538" y1="618" x2="588" y2="658"/>
-      <line x1="528" y1="670" x2="568" y2="706"/>
-    </g>
-
-    <!-- 金黄色笔尖（羽毛下端的三角形） -->
-    <path d="M 384 808 L 412 824 L 360 856 Z" fill="url(#tip)"/>
-    <path d="M 384 808 L 412 824 L 360 856 Z" fill="none" stroke="#b45309" stroke-opacity="0.35" stroke-width="2" stroke-linejoin="round"/>
-    <!-- 笔尖中央分缝 -->
-    <line x1="386" y1="820" x2="372" y2="848" stroke="#92400e" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"/>
-  </g>
-
-  <!-- 顶部柔和高光 -->
-  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#glow)"/>
+  <!-- 品牌蓝下划线点缀 -->
+  <rect x="412" y="828" width="200" height="10" rx="5" ry="5" fill="#3b82f6"/>
 </svg>`
 }
 
 const svg = iconSVG()
 mkdirSync('public', { recursive: true })
 mkdirSync('src-tauri/icons', { recursive: true })
+
+const fontOptions = {
+  fontFiles: [fontPath],
+  loadSystemFonts: false,
+  defaultFontFamily: 'SimHei'
+}
 
 const sizes = [
   ['src-tauri/icons/source.png', 1024],
@@ -100,7 +60,8 @@ const sizes = [
 for (const [path, size] of sizes) {
   const resvg = new Resvg(svg, {
     fitTo: { mode: 'width', value: size },
-    background: 'rgba(0,0,0,0)'
+    background: 'rgba(0,0,0,0)',
+    font: fontOptions
   })
   const png = resvg.render().asPng()
   writeFileSync(path, png)

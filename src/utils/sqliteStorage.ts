@@ -2,6 +2,7 @@
 import Database from '@tauri-apps/plugin-sql'
 import type { BackupData, Diary, Note, Task } from '@/types'
 import type { StorageAdapter } from '@/utils/storage'
+import { tsToDateStr } from '@/utils/time'
 
 /** 数据库文件名（相对于 Tauri App 数据目录） */
 const DB_PATH = 'sqlite:qingji.db'
@@ -15,6 +16,7 @@ interface TaskRow {
   created_at: number
   updated_at: number
   order_index: number
+  color: string | null
 }
 
 /** notes 表行结构 */
@@ -24,6 +26,9 @@ interface NoteRow {
   content: string
   created_at: number
   updated_at: number
+  date: string
+  archived: number
+  archived_at: number | null
 }
 
 /** diaries 表行结构 */
@@ -42,7 +47,8 @@ function rowToTask(row: TaskRow): Task {
     completed: !!row.completed,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    order: row.order_index
+    order: row.order_index,
+    color: row.color ?? undefined
   }
 }
 
@@ -52,7 +58,10 @@ function rowToNote(row: NoteRow): Note {
     title: row.title,
     content: row.content,
     created_at: row.created_at,
-    updated_at: row.updated_at
+    updated_at: row.updated_at,
+    date: row.date,
+    archived: !!row.archived,
+    archived_at: row.archived_at
   }
 }
 
@@ -94,7 +103,8 @@ export class SQLiteStorage implements StorageAdapter {
         completed INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
-        order_index INTEGER NOT NULL
+        order_index INTEGER NOT NULL,
+        color TEXT
       )
     `)
     await db.execute(`
@@ -103,7 +113,10 @@ export class SQLiteStorage implements StorageAdapter {
         title TEXT NOT NULL,
         content TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        date TEXT,
+        archived INTEGER DEFAULT 0,
+        archived_at INTEGER
       )
     `)
     await db.execute(`
@@ -121,8 +134,18 @@ export class SQLiteStorage implements StorageAdapter {
       'CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at)'
     )
     await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_notes_date ON notes(date)'
+    )
+    await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_diaries_date ON diaries(date)'
     )
+
+    // 存量数据迁移：给已有便签回填 date（按 created_at 转本地日期）
+    await db.execute(`
+      UPDATE notes SET date = strftime('%Y-%m-%d', created_at/1000, 'unixepoch', 'localtime')
+      WHERE date IS NULL
+    `)
+    await db.execute(`UPDATE notes SET archived = 0 WHERE archived IS NULL`)
   }
 
   // ---------- Tasks ----------
@@ -142,6 +165,13 @@ export class SQLiteStorage implements StorageAdapter {
     return rows.map(rowToTask)
   }
 
+  async getTaskDates(): Promise<string[]> {
+    const rows = await this.getDb().select<{ date: string }[]>(
+      'SELECT DISTINCT date FROM tasks ORDER BY date ASC'
+    )
+    return rows.map((r) => r.date)
+  }
+
   async createTask(
     task: Omit<Task, 'id' | 'created_at' | 'updated_at'>
   ): Promise<Task> {
@@ -153,8 +183,8 @@ export class SQLiteStorage implements StorageAdapter {
       updated_at: now
     }
     await this.getDb().execute(
-      `INSERT INTO tasks (id, date, content, completed, created_at, updated_at, order_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO tasks (id, date, content, completed, created_at, updated_at, order_index, color)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         record.id,
         record.date,
@@ -162,7 +192,8 @@ export class SQLiteStorage implements StorageAdapter {
         record.completed ? 1 : 0,
         record.created_at,
         record.updated_at,
-        record.order
+        record.order,
+        record.color ?? null
       ]
     )
     return record
@@ -185,14 +216,15 @@ export class SQLiteStorage implements StorageAdapter {
     }
     await this.getDb().execute(
       `UPDATE tasks
-       SET date = $1, content = $2, completed = $3, updated_at = $4, order_index = $5
-       WHERE id = $6`,
+       SET date = $1, content = $2, completed = $3, updated_at = $4, order_index = $5, color = $6
+       WHERE id = $7`,
       [
         next.date,
         next.content,
         next.completed ? 1 : 0,
         next.updated_at,
         next.order,
+        next.color ?? null,
         next.id
       ]
     )
@@ -208,6 +240,14 @@ export class SQLiteStorage implements StorageAdapter {
   async getAllNotes(): Promise<Note[]> {
     const rows = await this.getDb().select<NoteRow[]>(
       'SELECT * FROM notes ORDER BY updated_at DESC'
+    )
+    return rows.map(rowToNote)
+  }
+
+  async getNotesByDate(date: string): Promise<Note[]> {
+    const rows = await this.getDb().select<NoteRow[]>(
+      'SELECT * FROM notes WHERE date = $1 ORDER BY created_at ASC',
+      [date]
     )
     return rows.map(rowToNote)
   }
@@ -232,14 +272,17 @@ export class SQLiteStorage implements StorageAdapter {
       updated_at: now
     }
     await this.getDb().execute(
-      `INSERT INTO notes (id, title, content, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO notes (id, title, content, created_at, updated_at, date, archived, archived_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         record.id,
         record.title,
         record.content,
         record.created_at,
-        record.updated_at
+        record.updated_at,
+        record.date,
+        record.archived ? 1 : 0,
+        record.archived_at
       ]
     )
     return record
@@ -262,9 +305,17 @@ export class SQLiteStorage implements StorageAdapter {
     }
     await this.getDb().execute(
       `UPDATE notes
-       SET title = $1, content = $2, updated_at = $3
-       WHERE id = $4`,
-      [next.title, next.content, next.updated_at, next.id]
+       SET title = $1, content = $2, updated_at = $3, date = $4, archived = $5, archived_at = $6
+       WHERE id = $7`,
+      [
+        next.title,
+        next.content,
+        next.updated_at,
+        next.date,
+        next.archived ? 1 : 0,
+        next.archived_at,
+        next.id
+      ]
     )
     return next
   }
@@ -350,8 +401,8 @@ export class SQLiteStorage implements StorageAdapter {
     await db.execute('DELETE FROM diaries')
     for (const t of data.tasks) {
       await db.execute(
-        `INSERT INTO tasks (id, date, content, completed, created_at, updated_at, order_index)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        `INSERT INTO tasks (id, date, content, completed, created_at, updated_at, order_index, color)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           t.id,
           t.date,
@@ -359,15 +410,25 @@ export class SQLiteStorage implements StorageAdapter {
           t.completed ? 1 : 0,
           t.created_at,
           t.updated_at,
-          t.order
+          t.order,
+          t.color ?? null
         ]
       )
     }
     for (const n of data.notes) {
       await db.execute(
-        `INSERT INTO notes (id, title, content, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [n.id, n.title, n.content, n.created_at, n.updated_at]
+        `INSERT INTO notes (id, title, content, created_at, updated_at, date, archived, archived_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          n.id,
+          n.title,
+          n.content,
+          n.created_at,
+          n.updated_at,
+          n.date || tsToDateStr(n.created_at),
+          n.archived ? 1 : 0,
+          n.archived_at ?? null
+        ]
       )
     }
     for (const d of data.diaries) {

@@ -1,24 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+// 今日页：合并了原任务页功能。日期由全局 header 的日历按钮驱动（app.selectedDate），
+// 可查看任意日期的任务；为选中日期添加任务。
+import { computed, onMounted, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
+import { useAppStore } from '@/stores/app'
 import TaskItem from '@/components/task/TaskItem.vue'
 import TaskInput from '@/components/task/TaskInput.vue'
 
 const taskStore = useTaskStore()
-
-function todayStr(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-const dateLabel = new Intl.DateTimeFormat('zh-CN', {
-  month: 'long',
-  day: 'numeric',
-  weekday: 'long'
-}).format(new Date())
+const app = useAppStore()
 
 const completedCount = computed(() => taskStore.tasks.filter((t) => t.completed).length)
 const totalCount = computed(() => taskStore.tasks.length)
@@ -40,29 +30,48 @@ function handleDelete(id: string): void {
   taskStore.deleteTask(id)
 }
 
-onMounted(() => {
-  taskStore.loadTasks(todayStr())
+// 全局选中日期变化 → 重新加载该日任务
+watch(
+  () => app.selectedDate,
+  (val) => {
+    void taskStore.loadTasks(val)
+  }
+)
+
+// 任务日期集合变化 → 同步全局日历的标记日期
+watch(
+  () => taskStore.taskDates,
+  (dates) => {
+    app.setMarkedDates(dates)
+  }
+)
+
+onMounted(async () => {
+  await taskStore.loadTaskDates()
+  app.setMarkedDates(taskStore.taskDates)
+  await taskStore.loadTasks(app.selectedDate)
 })
 </script>
 
 <template>
   <section class="mx-auto max-w-3xl">
-    <!-- 日期 + 进度文字 -->
-    <div class="flex items-end justify-between gap-4">
-      <h2 class="text-2xl font-semibold" style="color: var(--color-text-primary)">
-        {{ dateLabel }}
-      </h2>
+    <!-- 进度 -->
+    <div class="flex items-center justify-between gap-4">
+      <span class="text-sm" style="color: var(--color-text-secondary)">
+        {{ completedCount }}/{{ totalCount }} 已完成
+      </span>
       <span
-        class="whitespace-nowrap text-sm"
+        v-if="totalCount > 0"
+        class="text-sm font-medium"
         style="color: var(--color-text-secondary)"
       >
-        {{ completedCount }}/{{ totalCount }} 已完成
+        {{ progressPct }}%
       </span>
     </div>
 
     <!-- 进度条 -->
     <div
-      class="mt-3 h-2 w-full overflow-hidden rounded-full"
+      class="mt-2 h-2 w-full overflow-hidden rounded-full"
       style="background-color: var(--color-border)"
     >
       <div
@@ -86,11 +95,11 @@ onMounted(() => {
     <!-- 空状态 -->
     <div v-else class="mt-6 card text-center">
       <p class="text-sm" style="color: var(--color-text-secondary)">
-        今天还没有任务，添加一个吧
+        这一天还没有任务，添加一个吧
       </p>
     </div>
 
     <!-- 添加任务 -->
-    <TaskInput class="mt-6" placeholder="添加今日任务..." @add="handleAdd" />
+    <TaskInput class="mt-6" placeholder="添加任务..." @add="handleAdd" />
   </section>
 </template>

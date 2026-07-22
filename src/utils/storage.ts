@@ -14,9 +14,12 @@ export interface StorageAdapter {
   createTask(task: Omit<Task, 'id' | 'created_at' | 'updated_at'>): Promise<Task>
   updateTask(id: string, patch: Partial<Task>): Promise<Task>
   deleteTask(id: string): Promise<void>
+  /** 查询有任务的日期集合（YYYY-MM-DD） */
+  getTaskDates(): Promise<string[]>
 
   // ---- Notes ----
   getAllNotes(): Promise<Note[]>
+  getNotesByDate(date: string): Promise<Note[]>
   getNote(id: string): Promise<Note | null>
   createNote(note: Omit<Note, 'id' | 'created_at' | 'updated_at'>): Promise<Note>
   updateNote(id: string, patch: Partial<Note>): Promise<Note>

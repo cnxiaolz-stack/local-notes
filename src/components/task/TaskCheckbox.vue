@@ -1,7 +1,12 @@
 <script setup lang="ts">
-// 圆形自定义复选框：未完成空心，已完成实心 + 对勾
-defineProps<{ checked: boolean; disabled?: boolean }>()
+// 圆形自定义复选框：未完成空心，已完成实心 + 对勾。
+// 颜色由调用方传入（任务随机色），未传时回退到品牌蓝。
+import { computed } from 'vue'
+
+const props = defineProps<{ checked: boolean; disabled?: boolean; color?: string }>()
 defineEmits<{ toggle: [] }>()
+
+const effectiveColor = computed(() => props.color || 'var(--color-brand)')
 </script>
 
 <template>
@@ -9,6 +14,7 @@ defineEmits<{ toggle: [] }>()
     type="button"
     class="task-checkbox"
     :class="{ 'is-checked': checked }"
+    :style="{ color: effectiveColor }"
     role="checkbox"
     :aria-checked="checked"
     :disabled="disabled"
@@ -46,17 +52,12 @@ defineEmits<{ toggle: [] }>()
   border: none;
   padding: 0;
   background-color: transparent;
-  color: var(--color-text-secondary);
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 200ms ease, background-color 200ms ease, transform 120ms ease;
+  transition: background-color 200ms ease, transform 120ms ease;
 }
 .task-checkbox:hover {
-  color: var(--color-brand);
   background-color: var(--color-bg);
-}
-.task-checkbox.is-checked {
-  color: var(--color-brand);
 }
 .task-checkbox:active {
   transform: scale(0.92);
@@ -65,12 +66,6 @@ defineEmits<{ toggle: [] }>()
   cursor: default;
 }
 .task-checkbox:disabled:hover {
-  color: var(--color-text-secondary);
-  background-color: transparent;
-}
-.task-checkbox:disabled.is-checked,
-.task-checkbox:disabled.is-checked:hover {
-  color: var(--color-brand);
   background-color: transparent;
 }
 .task-checkbox:disabled:active {

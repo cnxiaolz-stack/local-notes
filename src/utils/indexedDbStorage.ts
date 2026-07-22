@@ -3,11 +3,12 @@ import Dexie from 'dexie'
 import type { EntityTable } from 'dexie'
 import type { BackupData, Diary, Note, Task } from '@/types'
 import type { StorageAdapter } from '@/utils/storage'
+import { tsToDateStr } from '@/utils/time'
 
 /**
  * Dexie 子类：定义三张表。
  * - tasks: 主键 id，索引 date
- * - notes: 主键 id，索引 updated_at
+ * - notes: 主键 id，索引 updated_at / date / archived
  * - diaries: 主键 date
  */
 class QingJiDB extends Dexie {
@@ -20,6 +21,12 @@ class QingJiDB extends Dexie {
     this.version(1).stores({
       tasks: 'id, date',
       notes: 'id, updated_at',
+      diaries: 'date'
+    })
+    // v2：notes 加 date / archived 索引；tasks 加 color 字段（Dexie 索引语法不含 color，但数据结构允许）
+    this.version(2).stores({
+      tasks: 'id, date',
+      notes: 'id, updated_at, date, archived',
       diaries: 'date'
     })
   }
@@ -35,6 +42,20 @@ function getDb(): QingJiDB {
   return dbInstance
 }
 
+/** 存量数据迁移：给已有便签回填 date / archived */
+async function migrateNotes(): Promise<void> {
+  const db = getDb()
+  const stale = await db.notes.filter((n) => !n.date).toArray()
+  for (const n of stale) {
+    await db.notes.put({
+      ...n,
+      date: tsToDateStr(n.created_at),
+      archived: n.archived ?? false,
+      archived_at: n.archived_at ?? null
+    })
+  }
+}
+
 /**
  * PWA 端 IndexedDB 适配器。
  */
@@ -44,6 +65,7 @@ export class IndexedDbStorage implements StorageAdapter {
     if (!db.isOpen()) {
       await db.open()
     }
+    await migrateNotes()
   }
 
   // ---------- Tasks ----------
@@ -59,6 +81,12 @@ export class IndexedDbStorage implements StorageAdapter {
       if (a.date !== b.date) return a.date < b.date ? -1 : 1
       return a.order - b.order
     })
+  }
+
+  async getTaskDates(): Promise<string[]> {
+    const items = await getDb().tasks.toArray()
+    const set = new Set(items.map((t) => t.date))
+    return Array.from(set).sort()
   }
 
   async createTask(
@@ -98,6 +126,11 @@ export class IndexedDbStorage implements StorageAdapter {
 
   async getAllNotes(): Promise<Note[]> {
     return getDb().notes.orderBy('updated_at').reverse().toArray()
+  }
+
+  async getNotesByDate(date: string): Promise<Note[]> {
+    const items = await getDb().notes.where('date').equals(date).toArray()
+    return items.sort((a, b) => a.created_at - b.created_at)
   }
 
   async getNote(id: string): Promise<Note | null> {
@@ -204,7 +237,14 @@ export class IndexedDbStorage implements StorageAdapter {
       await db.notes.clear()
       await db.diaries.clear()
       await db.tasks.bulkAdd(data.tasks)
-      await db.notes.bulkAdd(data.notes)
+      // 便签回填 date 字段（兼容旧备份）
+      const notes = data.notes.map((n) => ({
+        ...n,
+        date: n.date || tsToDateStr(n.created_at),
+        archived: n.archived ?? false,
+        archived_at: n.archived_at ?? null
+      }))
+      await db.notes.bulkAdd(notes)
       await db.diaries.bulkAdd(data.diaries)
     })
   }

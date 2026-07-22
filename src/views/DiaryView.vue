@@ -1,33 +1,23 @@
 <script setup lang="ts">
-// 日记主视图：左侧日历/列表 + 右侧编辑区
+// 日记主视图：左侧列表（按月分组）+ 右侧编辑区。
+// 日期切换由全局 header 的日历按钮驱动（app.selectedDate），本页不再自带日历。
 import { onMounted, ref, watch } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
+import { useAppStore } from '@/stores/app'
 import { getStorage } from '@/utils/storage'
 import type { Diary } from '@/types'
-import Calendar from '@/components/diary/Calendar.vue'
 import DiaryList from '@/components/diary/DiaryList.vue'
 import DiaryEditor from '@/components/diary/DiaryEditor.vue'
 
 const diaryStore = useDiaryStore()
+const app = useAppStore()
 
-function todayStr(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-/** 当前编辑的日期（YYYY-MM-DD），默认今日 */
-const selectedDate = ref<string>(todayStr())
 /** 当前编辑区内容镜像（来自 store.currentDiary，无则为空串） */
 const diaryContent = ref<string>('')
-/** 切换日期时的加载态（也用于首次挂载） */
+/** 切换日期时的加载态（也用于首次挂载，触发旧编辑器卸载并 flushSave） */
 const isLoading = ref<boolean>(true)
 /** 全部日记（用于列表视图的内容预览） */
 const allDiaries = ref<Diary[]>([])
-/** 侧栏视图：日历 / 列表 */
-const sidebarMode = ref<'calendar' | 'list'>('calendar')
 /** 移动端抽屉是否打开 */
 const isSidebarOpen = ref<boolean>(false)
 
@@ -35,37 +25,47 @@ async function refreshAllDiaries(): Promise<void> {
   allDiaries.value = await getStorage().getAllDiaries()
 }
 
-/** 切换到指定日期：先把编辑区置为加载态（触发旧编辑器卸载并 flushSave），再加载新日记 */
-async function selectDate(date: string): Promise<void> {
-  if (date === selectedDate.value && !isLoading.value) return
+/** 按全局选中日期加载日记 */
+async function loadDate(date: string): Promise<void> {
   isLoading.value = true
   isSidebarOpen.value = false
   try {
     await diaryStore.loadDiary(date)
     diaryContent.value = diaryStore.currentDiary?.content ?? ''
-    selectedDate.value = date
   } catch (err) {
     console.error('[qingji] 加载日记失败：', err)
     diaryContent.value = ''
-    selectedDate.value = date
   } finally {
     isLoading.value = false
   }
 }
 
 function handleSelect(date: string): void {
-  void selectDate(date)
+  app.setSelectedDate(date)
 }
 
 function openSidebar(): void {
   isSidebarOpen.value = true
 }
 
-/**
- * 监听 store.currentDiary 变化，同步更新本地 allDiaries：
- * - 保存时：让列表预览显示最新内容
- * - 加载时：若该日期已存在则相当于无操作
- */
+// 全局选中日期变化 → 重新加载该日日记
+watch(
+  () => app.selectedDate,
+  (val) => {
+    void loadDate(val)
+  }
+)
+
+// 日记日期集合变化 → 同步全局日历的标记日期，并刷新列表（处理新增/删除）
+watch(
+  () => diaryStore.diaryDates,
+  (dates) => {
+    app.setMarkedDates(dates)
+    void refreshAllDiaries()
+  }
+)
+
+// store.currentDiary 变化时同步本地列表预览
 watch(
   () => diaryStore.currentDiary,
   (newDiary) => {
@@ -84,15 +84,15 @@ onMounted(async () => {
     await Promise.all([diaryStore.loadDiaryDates(), refreshAllDiaries()])
   } catch (err) {
     console.error('[qingji] 日记数据加载失败：', err)
-  } finally {
-    await selectDate(todayStr())
   }
+  app.setMarkedDates(diaryStore.diaryDates)
+  await loadDate(app.selectedDate)
 })
 </script>
 
 <template>
   <section class="diary-view">
-    <!-- 移动端：打开日历/列表抽屉的按钮 -->
+    <!-- 移动端：打开列表抽屉的按钮 -->
     <button
       type="button"
       class="diary-mobile-toggle md:hidden"
@@ -109,49 +109,26 @@ onMounted(async () => {
         stroke-linejoin="round"
         aria-hidden="true"
       >
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
       </svg>
-      <span>{{ sidebarMode === 'calendar' ? '日历' : '列表' }}</span>
+      <span>列表</span>
     </button>
 
     <div class="diary-layout">
-      <!-- 侧栏：桌面端常驻，移动端为滑入抽屉 -->
+      <!-- 侧栏：桌面端常驻，移动端为滑入抽屉，仅展示日记列表 -->
       <aside
         class="diary-sidebar"
         :class="{ 'is-open': isSidebarOpen }"
       >
-        <div class="sidebar-tabs">
-          <button
-            type="button"
-            class="sidebar-tab"
-            :class="{ 'is-active': sidebarMode === 'calendar' }"
-            @click="sidebarMode = 'calendar'"
-          >
-            日历
-          </button>
-          <button
-            type="button"
-            class="sidebar-tab"
-            :class="{ 'is-active': sidebarMode === 'list' }"
-            @click="sidebarMode = 'list'"
-          >
-            列表
-          </button>
-        </div>
         <div class="sidebar-body">
-          <Calendar
-            v-if="sidebarMode === 'calendar'"
-            :diary-dates="diaryStore.diaryDates"
-            :selected-date="selectedDate"
-            @select="handleSelect"
-          />
           <DiaryList
-            v-else
             :diaries="allDiaries"
-            :selected-date="selectedDate"
+            :selected-date="app.selectedDate"
             @select="handleSelect"
           />
         </div>
@@ -170,8 +147,8 @@ onMounted(async () => {
       <div class="diary-main">
         <DiaryEditor
           v-if="!isLoading"
-          :key="selectedDate"
-          :date="selectedDate"
+          :key="app.selectedDate"
+          :date="app.selectedDate"
           :initial-content="diaryContent"
         />
         <div v-else class="diary-loading">
@@ -266,36 +243,6 @@ onMounted(async () => {
     max-height: calc(100vh - 8rem);
     padding: 1rem;
   }
-}
-
-.sidebar-tabs {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  background-color: var(--color-bg);
-  border-radius: 0.5rem;
-  flex-shrink: 0;
-}
-.sidebar-tab {
-  flex: 1 1 0%;
-  min-height: 32px;
-  padding: 0 0.5rem;
-  border: none;
-  border-radius: 0.375rem;
-  background-color: transparent;
-  color: var(--color-text-secondary);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background-color 200ms ease, color 200ms ease;
-}
-.sidebar-tab:hover {
-  color: var(--color-text-primary);
-}
-.sidebar-tab.is-active {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .sidebar-body {

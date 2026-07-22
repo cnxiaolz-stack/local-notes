@@ -1,7 +1,7 @@
 // 任务 store（Pinia setup 风格）
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import type { Task } from '@/types'
+import { TASK_COLORS, type Task } from '@/types'
 import { getStorage } from '@/utils/storage'
 
 /** 返回今天的日期字符串 YYYY-MM-DD */
@@ -13,11 +13,19 @@ function todayStr(): string {
   return `${y}-${m}-${day}`
 }
 
+/** 从预设色板随机取一个颜色，可排除某个颜色（用于相邻不同色） */
+function pickColor(exclude?: string): string {
+  const pool = TASK_COLORS.filter((c) => c !== exclude)
+  return pool[Math.floor(Math.random() * pool.length)]
+}
+
 export const useTaskStore = defineStore('task', () => {
   /** 当前查看的日期（YYYY-MM-DD） */
   const currentDate = ref<string>(todayStr())
   /** 当前日期下的任务列表（按 order 升序） */
   const tasks = ref<Task[]>([])
+  /** 有任务记录的日期集合（用于全局日历标记） */
+  const taskDates = ref<string[]>([])
 
   /** 完成进度 0..1 */
   const progress = computed<number>(() => {
@@ -33,15 +41,26 @@ export const useTaskStore = defineStore('task', () => {
     tasks.value = await getStorage().getTasksByDate(date)
   }
 
-  /** 新增任务（追加到末尾） */
+  /** 加载所有有任务的日期（用于日历标记） */
+  async function loadTaskDates(): Promise<void> {
+    taskDates.value = await getStorage().getTaskDates()
+  }
+
+  /** 新增任务（追加到末尾，颜色与上一个任务不同） */
   async function addTask(content: string): Promise<Task> {
+    const lastColor = tasks.value[tasks.value.length - 1]?.color
     const created = await getStorage().createTask({
       date: currentDate.value,
       content,
       completed: false,
-      order: tasks.value.length
+      order: tasks.value.length,
+      color: pickColor(lastColor)
     })
     tasks.value.push(created)
+    // 若该日期尚未标记，加入标记集合
+    if (!taskDates.value.includes(created.date)) {
+      taskDates.value = [...taskDates.value, created.date]
+    }
     return created
   }
 
@@ -72,8 +91,10 @@ export const useTaskStore = defineStore('task', () => {
   return {
     currentDate,
     tasks,
+    taskDates,
     progress,
     loadTasks,
+    loadTaskDates,
     addTask,
     toggleTask,
     updateTask,

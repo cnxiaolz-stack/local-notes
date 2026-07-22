@@ -25,6 +25,13 @@ export const useDiaryStore = defineStore('diary', () => {
     return saved
   }
 
+  /** 删除指定日期的日记（清空内容时调用，同步移除日期标记与列表） */
+  async function deleteDiary(date: string): Promise<void> {
+    await getStorage().deleteDiary(date)
+    currentDiary.value = null
+    diaryDates.value = diaryDates.value.filter((d) => d !== date)
+  }
+
   /** 加载所有已存在日记的日期列表 */
   async function loadDiaryDates(): Promise<void> {
     const all = await getStorage().getAllDiaries()
@@ -36,6 +43,7 @@ export const useDiaryStore = defineStore('diary', () => {
     diaryDates,
     loadDiary,
     saveDiary,
+    deleteDiary,
     loadDiaryDates
   }
 })

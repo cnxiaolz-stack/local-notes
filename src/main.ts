@@ -2,7 +2,6 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import { useAppStore } from '@/stores/app'
 import { initDatabase } from '@/utils/db'
 import './style.css'
 
@@ -10,9 +9,6 @@ const app = createApp(App)
 const pinia = createPinia()
 app.use(pinia)
 app.use(router)
-
-// 挂载前应用主题，避免深浅色闪烁
-useAppStore(pinia).initTheme()
 
 // 先初始化本地数据库，再挂载应用
 ;(async () => {

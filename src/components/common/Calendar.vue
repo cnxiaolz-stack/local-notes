@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// 日记日历视图：月历网格 + 有日记的日期标记点 + 今日高亮
+// 通用日历组件：月历网格 + 标记日期 + 今日高亮 + 选中态
+// 由日记模块和今日页共用
 import { computed, ref } from 'vue'
 
 const props = defineProps<{
-  /** 已有日记的日期集合（YYYY-MM-DD） */
-  diaryDates: string[]
+  /** 有标记的日期集合（YYYY-MM-DD），如有日记的日期、有任务的日期 */
+  markedDates: string[]
   /** 当前选中的日期（YYYY-MM-DD） */
   selectedDate: string
 }>()
@@ -37,19 +38,18 @@ interface DayCell {
   inMonth: boolean
   isToday: boolean
   isSelected: boolean
-  hasDiary: boolean
+  isMarked: boolean
 }
 
 const cells = computed<DayCell[]>(() => {
   const result: DayCell[] = []
   const firstOfMonth = new Date(viewYear.value, viewMonth.value, 1)
-  // 周一为一周起始：JS getDay() 周日=0..周六=6，转换为周一=0..周日=6
   let startWeekday = firstOfMonth.getDay() - 1
   if (startWeekday < 0) startWeekday = 6
   const startDate = new Date(firstOfMonth)
   startDate.setDate(startDate.getDate() - startWeekday)
 
-  const dateSet = new Set(props.diaryDates)
+  const dateSet = new Set(props.markedDates)
   for (let i = 0; i < 42; i++) {
     const d = new Date(startDate)
     d.setDate(startDate.getDate() + i)
@@ -60,7 +60,7 @@ const cells = computed<DayCell[]>(() => {
       inMonth: d.getMonth() === viewMonth.value,
       isToday: dateStr === todayStr,
       isSelected: dateStr === props.selectedDate,
-      hasDiary: dateSet.has(dateStr)
+      isMarked: dateSet.has(dateStr)
     })
   }
   return result
@@ -85,6 +85,10 @@ function nextMonth(): void {
 }
 
 function selectDay(cell: DayCell): void {
+  // 切到该日期所在月份
+  const [y, m] = cell.date.split('-').map(Number)
+  viewYear.value = y
+  viewMonth.value = m - 1
   emit('select', cell.date)
 }
 </script>
@@ -92,73 +96,37 @@ function selectDay(cell: DayCell): void {
 <template>
   <div class="calendar">
     <div class="cal-header">
-      <button
-        type="button"
-        class="cal-nav"
-        aria-label="上一月"
-        @click="prevMonth"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
+      <button type="button" class="cal-nav" aria-label="上一月" @click="prevMonth">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
       <span class="cal-month-label">{{ monthLabel }}</span>
-      <button
-        type="button"
-        class="cal-nav"
-        aria-label="下一月"
-        @click="nextMonth"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
+      <button type="button" class="cal-nav" aria-label="下一月" @click="nextMonth">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="9 18 15 12 9 6" />
         </svg>
       </button>
     </div>
 
     <div class="cal-grid">
-      <div
-        v-for="w in weekdays"
-        :key="w"
-        class="cal-weekday"
-      >
-        {{ w }}
-      </div>
-      <button
-        v-for="cell in cells"
-        :key="cell.date"
-        type="button"
-        class="cal-cell"
-        :class="{
-          'is-out': !cell.inMonth,
-          'is-today': cell.isToday,
-          'is-selected': cell.isSelected,
-          'has-diary': cell.hasDiary
-        }"
-        :aria-label="cell.date"
-        @click="selectDay(cell)"
-      >
+      <div v-for="w in weekdays" :key="w" class="cal-weekday">{{ w }}</div>
+      <button v-for="cell in cells" :key="cell.date"
+              type="button" class="cal-cell"
+              :class="{
+                'is-out': !cell.inMonth,
+                'is-today': cell.isToday,
+                'is-selected': cell.isSelected,
+                'is-marked': cell.isMarked
+              }"
+              :aria-label="cell.date"
+              @click="selectDay(cell)">
         <span class="cal-day-num">{{ cell.day }}</span>
-        <span v-if="cell.hasDiary" class="cal-dot" aria-hidden="true"></span>
+        <span v-if="cell.isMarked" class="cal-dot" aria-hidden="true"></span>
       </button>
     </div>
   </div>
@@ -195,7 +163,7 @@ function selectDay(cell: DayCell): void {
 }
 .cal-nav:hover {
   color: var(--color-brand);
-  background-color: var(--color-bg);
+  background-color: var(--color-bg-soft);
 }
 .cal-nav:active {
   transform: scale(0.92);
@@ -243,7 +211,7 @@ function selectDay(cell: DayCell): void {
     border-color 200ms ease, transform 120ms ease;
 }
 .cal-cell:hover {
-  background-color: var(--color-bg);
+  background-color: var(--color-bg-soft);
 }
 .cal-cell:active {
   transform: scale(0.94);
@@ -285,7 +253,6 @@ function selectDay(cell: DayCell): void {
   filter: brightness(0.92);
 }
 
-/* 触摸设备始终可点击反馈 */
 @media (hover: none) {
   .cal-cell:hover {
     background-color: transparent;

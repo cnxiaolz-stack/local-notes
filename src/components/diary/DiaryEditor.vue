@@ -2,6 +2,7 @@
 // 日记编辑器：大文本输入区 + 日期显示 + 1000ms debounce 自动保存
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
+import { formatRelative } from '@/utils/time'
 
 const props = defineProps<{
   /** 当前编辑的日期（YYYY-MM-DD） */
@@ -74,6 +75,15 @@ const placeholder = computed(() =>
     : '这一天发生了什么？记录下来吧…'
 )
 
+const createdLabel = computed(() => {
+  const d = store.currentDiary
+  return d && d.date === props.date ? formatRelative(d.created_at) : ''
+})
+const updatedLabel = computed(() => {
+  const d = store.currentDiary
+  return d && d.date === props.date ? formatRelative(d.updated_at) : ''
+})
+
 const saveLabel = computed(() => {
   switch (saveStatus.value) {
     case 'saving':
@@ -119,18 +129,36 @@ async function doSave(): Promise<void> {
     saveStatus.value = 'idle'
     return
   }
+  const isEmpty = content.trim() === ''
   try {
-    await store.saveDiary(props.date, content)
-    lastSavedContent = content
-    saveStatus.value = 'saved'
-    if (savedTimer) clearTimeout(savedTimer)
-    savedTimer = setTimeout(() => {
-      saveStatus.value = 'idle'
-      savedTimer = null
-    }, 2000)
+    if (isEmpty) {
+      // 内容清空：若已有日记则删除，否则不操作（不保留空日记）
+      const existing = store.currentDiary
+      if (existing && existing.date === props.date) {
+        await store.deleteDiary(props.date)
+        saveStatus.value = 'saved'
+        scheduleSavedReset()
+      } else {
+        saveStatus.value = 'idle'
+      }
+      lastSavedContent = content
+    } else {
+      await store.saveDiary(props.date, content)
+      lastSavedContent = content
+      saveStatus.value = 'saved'
+      scheduleSavedReset()
+    }
   } catch {
     saveStatus.value = 'idle'
   }
+}
+
+function scheduleSavedReset(): void {
+  if (savedTimer) clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => {
+    saveStatus.value = 'idle'
+    savedTimer = null
+  }, 2000)
 }
 
 function flushSave(): void {
@@ -159,6 +187,10 @@ function onInput(): void {
         <span class="status-text">{{ saveLabel }}</span>
       </div>
     </div>
+
+    <p v-if="createdLabel" class="editor-time">
+      创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
+    </p>
 
     <textarea
       ref="textareaRef"
@@ -212,6 +244,20 @@ function onInput(): void {
   margin: 0;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
+}
+
+.editor-time {
+  margin: 0;
+  padding: 0.5rem 1.5rem 0;
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  opacity: 0.75;
+}
+
+@media (min-width: 768px) {
+  .editor-time {
+    padding: 0.5rem 2rem 0;
+  }
 }
 
 .editor-status {

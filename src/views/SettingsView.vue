@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import ThemeSettings from '@/components/settings/ThemeSettings.vue'
 import DataManagement from '@/components/settings/DataManagement.vue'
 import StorageInfo from '@/components/settings/StorageInfo.vue'
 import AboutInfo from '@/components/settings/AboutInfo.vue'
@@ -7,10 +6,9 @@ import AboutInfo from '@/components/settings/AboutInfo.vue'
 
 <template>
   <section class="mx-auto max-w-2xl">
-    <p class="settings-intro">主题、数据与个性化偏好。</p>
+    <p class="settings-intro">数据与个性化偏好。</p>
 
     <div class="settings-list">
-      <ThemeSettings />
       <DataManagement />
       <StorageInfo />
       <AboutInfo />

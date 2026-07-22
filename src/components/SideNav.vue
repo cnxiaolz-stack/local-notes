@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
-import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import { navItems } from '@/components/navItems'
 </script>
 
@@ -27,8 +26,6 @@ import { navItems } from '@/components/navItems'
       </RouterLink>
     </nav>
 
-    <div class="px-3 pb-4 pt-2">
-      <ThemeSwitcher />
-    </div>
+    <div class="px-3 pb-4 pt-2"></div>
   </aside>
 </template>

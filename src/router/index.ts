@@ -10,12 +10,6 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '今日' }
   },
   {
-    path: '/tasks',
-    name: 'tasks',
-    component: () => import('@/views/TasksView.vue'),
-    meta: { title: '任务' }
-  },
-  {
     path: '/notes',
     name: 'notes',
     component: () => import('@/views/NotesView.vue'),

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Note } from '@/types'
+import { formatRelative } from '@/utils/time'
 
 const props = defineProps<{ note: Note; keyword?: string }>()
 defineEmits<{ open: [] }>()
@@ -44,43 +45,14 @@ function splitHighlight(text: string): Chunk[] {
 const titleChunks = computed<Chunk[]>(() => splitHighlight(displayTitle.value))
 const previewChunks = computed<Chunk[]>(() => splitHighlight(preview.value))
 
-const relativeTime = computed(() => formatRelative(props.note.updated_at))
-
-function formatRelative(ts: number): string {
-  const now = Date.now()
-  const diff = now - ts
-  if (diff < 0) return '刚刚'
-  const min = 60_000
-  const hour = 3_600_000
-  const day = 86_400_000
-  if (diff < min) return '刚刚'
-  if (diff < hour) return `${Math.floor(diff / min)}分钟前`
-  if (diff < day) return `${Math.floor(diff / hour)}小时前`
-  const date = new Date(ts)
-  const nowDate = new Date(now)
-  const yesterday = new Date(
-    nowDate.getFullYear(),
-    nowDate.getMonth(),
-    nowDate.getDate() - 1
-  )
-  if (
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
-  ) {
-    return '昨天'
-  }
-  if (diff < 7 * day) return `${Math.floor(diff / day)}天前`
-  if (date.getFullYear() === nowDate.getFullYear()) {
-    return `${date.getMonth() + 1}月${date.getDate()}日`
-  }
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
-}
+const createdLabel = computed(() => formatRelative(props.note.created_at))
+const updatedLabel = computed(() => formatRelative(props.note.updated_at))
 </script>
 
 <template>
   <article
     class="note-card"
+    :class="{ 'is-archived': note.archived }"
     role="button"
     tabindex="0"
     aria-label="打开便签"
@@ -88,12 +60,15 @@ function formatRelative(ts: number): string {
     @keydown.enter.prevent="$emit('open')"
     @keydown.space.prevent="$emit('open')"
   >
-    <h3 class="note-title">
-      <template v-for="(chunk, i) in titleChunks" :key="i">
-        <mark v-if="chunk.hit" class="note-hit">{{ chunk.text }}</mark>
-        <template v-else>{{ chunk.text }}</template>
-      </template>
-    </h3>
+    <div class="note-card-head">
+      <h3 class="note-title">
+        <template v-for="(chunk, i) in titleChunks" :key="i">
+          <mark v-if="chunk.hit" class="note-hit">{{ chunk.text }}</mark>
+          <template v-else>{{ chunk.text }}</template>
+        </template>
+      </h3>
+      <span v-if="note.archived" class="note-archived-badge">已归档</span>
+    </div>
     <p v-if="preview" class="note-preview">
       <template v-for="(chunk, i) in previewChunks" :key="i">
         <mark v-if="chunk.hit" class="note-hit">{{ chunk.text }}</mark>
@@ -101,7 +76,7 @@ function formatRelative(ts: number): string {
       </template>
     </p>
     <p v-else class="note-preview note-preview-empty">无内容</p>
-    <p class="note-time">{{ relativeTime }}</p>
+    <p class="note-time">创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}</p>
   </article>
 </template>
 
@@ -110,8 +85,8 @@ function formatRelative(ts: number): string {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-height: 7rem;
-  padding: 1rem 1.125rem;
+  min-height: 6.5rem;
+  padding: 0.875rem 1rem;
   border-radius: 0.75rem;
   background-color: var(--color-surface);
   backdrop-filter: blur(var(--glass-blur));
@@ -133,6 +108,17 @@ function formatRelative(ts: number): string {
 .note-card:active {
   transform: translateY(0);
 }
+.note-card.is-archived {
+  opacity: 0.62;
+  background-color: var(--color-bg-soft);
+}
+
+.note-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
 
 .note-title {
   margin: 0;
@@ -145,6 +131,19 @@ function formatRelative(ts: number): string {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.note-archived-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-border);
+  padding: 0.125rem 0.4rem;
+  border-radius: 9999px;
+  white-space: nowrap;
 }
 
 .note-preview {
@@ -154,7 +153,7 @@ function formatRelative(ts: number): string {
   line-height: 1.5;
   color: var(--color-text-secondary);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
@@ -166,7 +165,7 @@ function formatRelative(ts: number): string {
 
 .note-time {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--color-text-secondary);
   opacity: 0.75;
 }

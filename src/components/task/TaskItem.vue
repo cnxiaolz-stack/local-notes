@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type { Task } from '@/types'
 import TaskCheckbox from './TaskCheckbox.vue'
+import { formatRelative } from '@/utils/time'
 
 const props = defineProps<{ task: Task; readonly?: boolean }>()
 const emit = defineEmits<{
@@ -9,6 +10,9 @@ const emit = defineEmits<{
   save: [content: string]
   delete: []
 }>()
+
+const createdLabel = computed(() => formatRelative(props.task.created_at))
+const updatedLabel = computed(() => formatRelative(props.task.updated_at))
 
 const isEditing = ref(false)
 const draft = ref('')
@@ -67,6 +71,7 @@ function handleDelete() {
     <TaskCheckbox
       :checked="task.completed"
       :disabled="readonly"
+      :color="task.color"
       @toggle="emit('toggle')"
     />
 
@@ -88,6 +93,9 @@ function handleDelete() {
         @keydown="onInputKeydown"
         @blur="onInputBlur"
       />
+      <p v-if="!isEditing" class="task-meta">
+        创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
+      </p>
     </div>
 
     <div v-if="!readonly && !isEditing" class="task-actions">
@@ -175,6 +183,14 @@ function handleDelete() {
 .task-item.is-done .task-content {
   text-decoration: line-through;
   color: var(--color-text-secondary);
+}
+
+.task-meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
 }
 
 .task-edit-input {
