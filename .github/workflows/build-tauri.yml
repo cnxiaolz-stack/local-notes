@@ -41,6 +41,9 @@ jobs:
 
       - name: Generate app icons
         run: |
+          # SimHei.ttf 不纳入版本控制（体积大），CI 中按需下载
+          mkdir -p scripts/fonts
+          curl -fsSL -o scripts/fonts/SimHei.ttf https://cdn.jsdelivr.net/gh/ichitenfont/simhei.font/SimHei.ttf
           node scripts/gen-icons.mjs
           pnpm tauri icon src-tauri/icons/source.png
 
