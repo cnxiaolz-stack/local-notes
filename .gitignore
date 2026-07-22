@@ -31,3 +31,8 @@ src-tauri/gen/schemas
 dev-dist
 *.tsbuildinfo
 .trae/
+
+# 二进制图标由 scripts/gen-icons.mjs 和 tauri icon 在构建时生成
+public/*.png
+src-tauri/icons/*
+!src-tauri/icons/.gitkeep

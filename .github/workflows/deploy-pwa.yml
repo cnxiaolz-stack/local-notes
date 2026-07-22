@@ -53,6 +53,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate PWA icons
+        run: node scripts/gen-icons.mjs
+
       - name: Configure GitHub Pages
         id: pages
         uses: actions/configure-pages@v5

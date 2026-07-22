@@ -35,6 +35,11 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate app icons
+        run: |
+          node scripts/gen-icons.mjs
+          pnpm tauri icon src-tauri/icons/source.png
+
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
 
