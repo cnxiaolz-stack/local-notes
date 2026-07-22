@@ -157,6 +157,8 @@ function preview(content: string): string {
   border-radius: 0.625rem;
   border: 1px solid var(--color-border);
   background-color: var(--color-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   text-align: left;
   cursor: pointer;
   transition: border-color 200ms ease, background-color 200ms ease,

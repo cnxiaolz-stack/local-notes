@@ -1,11 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#3b82f6" />
-  <path
-    d="M152 262 L228 336 L368 176"
-    stroke="#ffffff"
-    stroke-width="44"
-    fill="none"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#f5f3ff" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c7d2fe" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#a5b4fc" stop-opacity="0.8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="28%" cy="22%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="url(#bg)"/>
+
+  <path d="
+    M 312 300
+    L 632 300
+    L 762 430
+    L 762 710
+    Q 762 760 712 760
+    L 312 760
+    Q 262 760 262 710
+    L 262 350
+    Q 262 300 312 300
+    Z
+  " fill="url(#paper)"/>
+
+  <path d="M 632 300 L 632 430 L 762 430 Z" fill="url(#fold)"/>
+  <path d="M 632 300 L 632 430 L 762 430" fill="none" stroke="#6366f1" stroke-opacity="0.18" stroke-width="3" stroke-linejoin="round"/>
+
+  <line x1="312" y1="500" x2="662" y2="500" stroke="#a5b4fc" stroke-opacity="0.55" stroke-width="14" stroke-linecap="round"/>
+  <line x1="312" y1="570" x2="712" y2="570" stroke="#a5b4fc" stroke-opacity="0.45" stroke-width="14" stroke-linecap="round"/>
+  <line x1="312" y1="640" x2="612" y2="640" stroke="#a5b4fc" stroke-opacity="0.35" stroke-width="14" stroke-linecap="round"/>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="url(#glow)"/>
 </svg>

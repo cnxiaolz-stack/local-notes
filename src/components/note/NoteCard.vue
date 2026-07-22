@@ -114,14 +114,16 @@ function formatRelative(ts: number): string {
   padding: 1rem 1.125rem;
   border-radius: 0.75rem;
   background-color: var(--color-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--color-border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--glass-shadow);
   cursor: pointer;
   transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
 .note-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--glass-shadow-hover);
   border-color: var(--color-brand);
 }
 .note-card:focus-visible {

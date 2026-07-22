@@ -5,41 +5,41 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 中性简约配色（通过 CSS 变量驱动，支持深浅色切换）
+        // 玻璃质感配色（通过 CSS 变量驱动，支持深浅色切换）
         bg: {
-          light: '#fafaf9',
-          dark: '#1c1c1e'
+          light: 'transparent',
+          dark: 'transparent'
         },
         surface: {
-          light: '#ffffff',
-          dark: '#2c2c2e'
+          light: 'rgba(255, 255, 255, 0.65)',
+          dark: 'rgba(30, 27, 50, 0.55)'
         },
         border: {
-          light: '#e4e4e7',
-          dark: '#3a3a3c'
+          light: 'rgba(255, 255, 255, 0.6)',
+          dark: 'rgba(255, 255, 255, 0.12)'
         },
         text: {
           primary: {
-            light: '#18181b',
+            light: '#1e1b2e',
             dark: '#f4f4f5'
           },
           secondary: {
-            light: '#71717a',
+            light: '#6b7280',
             dark: '#a1a1aa'
           }
         },
         brand: {
-          DEFAULT: '#3b82f6',
-          50: '#eff6ff',
-          100: '#dbeafe',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8'
+          DEFAULT: '#6366f1',
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca'
         },
         accent: {
-          DEFAULT: '#10b981',
-          500: '#10b981',
-          600: '#059669'
+          DEFAULT: '#8b5cf6',
+          500: '#8b5cf6',
+          600: '#7c3aed'
         }
       },
       fontFamily: {

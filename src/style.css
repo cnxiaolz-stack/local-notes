@@ -2,25 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== 深浅色主题 CSS 变量 ===== */
+/* ===== 玻璃质感主题 CSS 变量 ===== */
 :root {
-  --color-bg: #fafaf9;
-  --color-surface: #ffffff;
-  --color-border: #e4e4e7;
-  --color-text-primary: #18181b;
-  --color-text-secondary: #71717a;
-  --color-brand: #3b82f6;
-  --color-accent: #10b981;
+  --color-bg: transparent;
+  --color-surface: rgba(255, 255, 255, 0.65);
+  --color-surface-strong: rgba(255, 255, 255, 0.85);
+  --color-border: rgba(255, 255, 255, 0.6);
+  --color-border-subtle: rgba(255, 255, 255, 0.35);
+  --color-text-primary: #1e1b2e;
+  --color-text-secondary: #6b7280;
+  --color-brand: #6366f1;
+  --color-brand-soft: rgba(99, 102, 241, 0.12);
+  --color-accent: #8b5cf6;
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 32px rgba(99, 102, 241, 0.12);
+  --glass-shadow-hover: 0 12px 40px rgba(99, 102, 241, 0.18);
 }
 
 .dark {
-  --color-bg: #1c1c1e;
-  --color-surface: #2c2c2e;
-  --color-border: #3a3a3c;
+  --color-bg: transparent;
+  --color-surface: rgba(30, 27, 50, 0.55);
+  --color-surface-strong: rgba(30, 27, 50, 0.75);
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
   --color-text-primary: #f4f4f5;
   --color-text-secondary: #a1a1aa;
-  --color-brand: #3b82f6;
-  --color-accent: #10b981;
+  --color-brand: #818cf8;
+  --color-brand-soft: rgba(129, 140, 248, 0.15);
+  --color-accent: #a78bfa;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
 html {
@@ -35,7 +46,9 @@ body,
 }
 
 body {
-  background-color: var(--color-bg);
+  /* 柔和蓝紫粉渐变背景，玻璃质感的底色 */
+  background-image: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 50%, #fce7f3 100%);
+  background-attachment: fixed;
   color: var(--color-text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
@@ -44,8 +57,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dark body {
+  /* 深色模式：深蓝紫渐变 */
+  background-image: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+}
+
 @layer components {
-  /* 顶部页头：页面标题 + 当前日期 */
+  /* 顶部页头：页面标题 + 当前日期（玻璃质感） */
   .app-header {
     display: flex;
     align-items: center;
@@ -54,7 +72,9 @@ body {
     padding: 1rem 1.5rem;
     padding-top: calc(1rem + env(safe-area-inset-top));
     background-color: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border-bottom: 1px solid var(--color-border-subtle);
   }
 
   /* 主内容区：充足留白，移动端底部为 Tab 栏留位 */
@@ -69,33 +89,42 @@ body {
     }
   }
 
-  /* 卡片：柔和圆角 + 微妙阴影 */
+  /* 卡片：玻璃质感 — 半透明 + 模糊 + 光晕边 + 柔和阴影 */
   .card {
-    @apply rounded-xl p-5 shadow-sm;
+    @apply rounded-2xl p-5;
     background-color: var(--color-surface);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--color-border);
+    box-shadow: var(--glass-shadow);
+    transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+  }
+  .card:hover {
+    box-shadow: var(--glass-shadow-hover);
   }
 
   /* 桌面端导航项 */
   .nav-link {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200;
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200;
     color: var(--color-text-secondary);
   }
   .nav-link:hover {
     color: var(--color-text-primary);
-    background-color: var(--color-surface);
+    background-color: var(--color-brand-soft);
   }
   .nav-link.router-link-active {
     color: var(--color-brand);
-    background-color: var(--color-surface);
+    background-color: var(--color-brand-soft);
     font-weight: 500;
   }
 
-  /* 移动端底部 Tab 栏 */
+  /* 移动端底部 Tab 栏（玻璃质感） */
   .tabbar {
     @apply fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around;
     background-color: var(--color-surface);
-    border-top: 1px solid var(--color-border);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border-top: 1px solid var(--color-border-subtle);
     padding-bottom: env(safe-area-inset-bottom);
   }
   .tab-item {
@@ -105,25 +134,15 @@ body {
   .tab-item-active {
     color: var(--color-brand);
   }
-
-  /* 主题切换按钮 */
-  .theme-toggle {
-    @apply flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors duration-200;
-    color: var(--color-text-secondary);
-  }
-  .theme-toggle:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-bg);
-  }
 }
 
-/* 微妙滚动条 */
+/* 玻璃质感滚动条 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-border);
+  background-color: var(--color-brand-soft);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-track {

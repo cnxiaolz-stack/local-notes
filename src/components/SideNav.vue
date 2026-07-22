@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
 import { navItems } from '@/components/navItems'
 </script>
 
 <template>
   <aside
     class="hidden md:flex md:w-56 md:shrink-0 md:flex-col"
-    style="background-color: var(--color-surface); border-right: 1px solid var(--color-border)"
+    style="background-color: var(--color-surface-strong); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border-right: 1px solid var(--color-border-subtle)"
   >
     <div class="flex items-center gap-2.5 px-5 py-5">
       <div
@@ -31,9 +30,5 @@ import { navItems } from '@/components/navItems'
         <span>{{ item.label }}</span>
       </RouterLink>
     </nav>
-
-    <div class="px-3 py-3" style="border-top: 1px solid var(--color-border)">
-      <ThemeToggle />
-    </div>
   </aside>
 </template>

@@ -118,6 +118,8 @@ const fullLabel = computed(() => {
   padding: 0.5rem;
   border-radius: 0.75rem;
   background-color: var(--color-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--color-border);
 }
 

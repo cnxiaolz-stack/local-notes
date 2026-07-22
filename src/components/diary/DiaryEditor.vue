@@ -177,8 +177,10 @@ function onInput(): void {
   flex-direction: column;
   border-radius: 0.75rem;
   background-color: var(--color-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--color-border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
 }
 

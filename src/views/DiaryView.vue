@@ -234,7 +234,9 @@ onMounted(async () => {
   bottom: 0;
   width: 320px;
   max-width: 85vw;
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border-right: 1px solid var(--color-border);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   transform: translateX(-100%);
@@ -333,6 +335,8 @@ onMounted(async () => {
   font-size: 0.875rem;
   border-radius: 0.75rem;
   background-color: var(--color-surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--color-border);
 }
 .loading-spinner {
