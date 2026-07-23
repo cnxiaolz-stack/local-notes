@@ -174,18 +174,14 @@ function onInput(): void {
   autoGrow()
 }
 
-/**
- * Tab 键在光标处插入 4 个空格（不跳出焦点）。
- * 有选区时：将选区整体缩进（每行前加 4 个空格）；Shift+Tab 反向缩进（去掉行首最多 4 个空格）。
- * 无选区时：直接插入 4 个空格，光标移到空格后。
- */
-function onKeyDown(e: KeyboardEvent): void {
-  if (e.key !== 'Tab') return
-  e.preventDefault()
+/** 正向缩进单位：4 个空格 */
+const INDENT = '    '
+
+/** 正向缩进：无选区时插入 4 空格；有选区时每行行首加 4 空格 */
+function onTab(): void {
   const el = textareaRef.value
   if (!el) return
   const { selectionStart: start, selectionEnd: end, value } = el
-  const INDENT = '    '
 
   if (start === end) {
     // 无选区：光标处插入 4 个空格
@@ -197,37 +193,43 @@ function onKeyDown(e: KeyboardEvent): void {
     return
   }
 
-  // 有选区：按行缩进
+  // 有选区：每行行首加 4 个空格
   const lineStart = value.lastIndexOf('\n', start - 1) + 1
   const selected = value.slice(lineStart, end)
-  if (e.shiftKey) {
-    // 反向缩进：每行行首去掉最多 4 个空格
-    const lines = selected.split('\n')
-    const dedented = lines
-      .map((line) => {
-        // 计算行首连续空格数，最多去掉 4 个
-        let remove = 0
-        while (remove < 4 && line[remove] === ' ') remove++
-        return line.slice(remove)
-      })
-      .join('\n')
-    const next = value.slice(0, lineStart) + dedented + value.slice(end)
-    draft.value = next
-    nextTick(() => {
-      el.selectionStart = lineStart
-      el.selectionEnd = lineStart + dedented.length
+  const lines = selected.split('\n')
+  const indented = lines.map((line) => INDENT + line).join('\n')
+  const next = value.slice(0, lineStart) + indented + value.slice(end)
+  draft.value = next
+  nextTick(() => {
+    el.selectionStart = lineStart
+    el.selectionEnd = lineStart + indented.length
+  })
+}
+
+/** 反向缩进（Shift+Tab）：有选区时去掉每行行首最多 4 个空格；无选区时不操作 */
+function onShiftTab(): void {
+  const el = textareaRef.value
+  if (!el) return
+  const { selectionStart: start, selectionEnd: end, value } = el
+  if (start === end) return
+
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1
+  const selected = value.slice(lineStart, end)
+  const lines = selected.split('\n')
+  const dedented = lines
+    .map((line) => {
+      // 计算行首连续空格数，最多去掉 4 个
+      let remove = 0
+      while (remove < 4 && line[remove] === ' ') remove++
+      return line.slice(remove)
     })
-  } else {
-    // 正向缩进：每行行首加 4 个空格
-    const lines = selected.split('\n')
-    const indented = lines.map((line) => INDENT + line).join('\n')
-    const next = value.slice(0, lineStart) + indented + value.slice(end)
-    draft.value = next
-    nextTick(() => {
-      el.selectionStart = lineStart
-      el.selectionEnd = lineStart + indented.length
-    })
-  }
+    .join('\n')
+  const next = value.slice(0, lineStart) + dedented + value.slice(end)
+  draft.value = next
+  nextTick(() => {
+    el.selectionStart = lineStart
+    el.selectionEnd = lineStart + dedented.length
+  })
 }
 </script>
 
@@ -255,7 +257,8 @@ function onKeyDown(e: KeyboardEvent): void {
       :placeholder="placeholder"
       :aria-label="`${dateLabel} 日记`"
       @input="onInput"
-      @keydown="onKeyDown"
+      @keydown.tab.prevent="onTab"
+      @keydown.tab.shift.prevent="onShiftTab"
     ></textarea>
   </div>
 </template>
