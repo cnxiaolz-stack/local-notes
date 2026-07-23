@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 日记编辑器：大文本输入区 + 日期显示 + 1000ms debounce 自动保存
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
 import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
@@ -95,11 +95,24 @@ const saveLabel = computed(() => {
   }
 })
 
+/** 全局跟踪 Shift 键状态（解决部分 WebView2 环境下 e.shiftKey 不可靠的问题） */
+let shiftPressed = false
+function onGlobalKeyDown(e: KeyboardEvent): void {
+  if (e.key === 'Shift') shiftPressed = true
+}
+function onGlobalKeyUp(e: KeyboardEvent): void {
+  if (e.key === 'Shift') shiftPressed = false
+}
+
 onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeyDown)
+  window.addEventListener('keyup', onGlobalKeyUp)
   autoGrow()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGlobalKeyDown)
+  window.removeEventListener('keyup', onGlobalKeyUp)
   flushSave()
   if (savedTimer) {
     clearTimeout(savedTimer)
@@ -179,27 +192,33 @@ const INDENT = '    '
 
 /**
  * Tab 键处理：光标处插入 4 空格 / 选区按行缩进；Shift+Tab 反向缩进。
- * 用 document.execCommand('insertText') 插入文本，保留浏览器原生撤销栈（Ctrl+Z 可撤销）。
+ * 用 setRangeText（HTML5 标准 API）插入文本，保留浏览器原生撤销栈（Ctrl+Z 可撤销）。
+ * Shift 检测用 e.shiftKey || shiftPressed 双重判断，shiftPressed 兜底 WebView2 异常。
  */
 function onKeyDown(e: KeyboardEvent): void {
   if (e.key !== 'Tab') return
-  e.preventDefault()
+  const isShift = e.shiftKey || shiftPressed
   const el = textareaRef.value
   if (!el) return
   const { selectionStart: start, selectionEnd: end, value } = el
 
-  // 无选区：光标处插入 4 个空格（用 execCommand 保留撤销栈）
+  // 无选区
   if (start === end) {
-    if (e.shiftKey) return
-    document.execCommand('insertText', false, INDENT)
+    if (isShift) return // Shift+Tab 无选区：放行，让浏览器默认焦点回退
+    e.preventDefault()
+    el.setRangeText(INDENT, start, end, 'end')
+    draft.value = el.value
+    scheduleSave()
+    autoGrow()
     return
   }
 
-  // 有选区：按行缩进（手动操作 value，撤销栈会重置，但选区缩进是少见操作）
+  // 有选区：按行缩进
+  e.preventDefault()
   const lineStart = value.lastIndexOf('\n', start - 1) + 1
   const selected = value.slice(lineStart, end)
 
-  if (e.shiftKey) {
+  if (isShift) {
     // 反向缩进：每行行首去掉最多 4 个空格
     const dedented = selected
       .split('\n')
@@ -209,25 +228,18 @@ function onKeyDown(e: KeyboardEvent): void {
         return line.slice(remove)
       })
       .join('\n')
-    const next = value.slice(0, lineStart) + dedented + value.slice(end)
-    draft.value = next
-    nextTick(() => {
-      el.selectionStart = lineStart
-      el.selectionEnd = lineStart + dedented.length
-    })
+    el.setRangeText(dedented, lineStart, end, 'select')
   } else {
     // 正向缩进：每行行首加 4 个空格
     const indented = selected
       .split('\n')
       .map((line) => INDENT + line)
       .join('\n')
-    const next = value.slice(0, lineStart) + indented + value.slice(end)
-    draft.value = next
-    nextTick(() => {
-      el.selectionStart = lineStart
-      el.selectionEnd = lineStart + indented.length
-    })
+    el.setRangeText(indented, lineStart, end, 'select')
   }
+  draft.value = el.value
+  scheduleSave()
+  autoGrow()
 }
 </script>
 
