@@ -1,19 +1,17 @@
 <script setup lang="ts">
-// 便签主视图：上方搜索框（常驻）+ 便签输入框（主要位置）。
-// 列表按需显示：搜索时显示搜索结果；点 header「全部」按钮（app.showAllList）展开全部分页列表；默认不显示列表。
-// 便签列表恒为全部（按 updated_at DESC），不再按日期过滤。
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+// 便签主视图：上方搜索框（常驻）+ 便签输入框 + 下方便签列表（默认常显）。
+// 列表按日期分组：未归档在前（date 经滚动后多为今天），归档置底（按原日期分组）。
+// 选 header 日期 → 滚动到对应日期分组位置（主要用于查看某天归档的便签）。
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useNoteStore } from '@/stores/note'
 import { useAppStore } from '@/stores/app'
 import type { Note } from '@/types'
 import NoteEditor from '@/components/note/NoteEditor.vue'
 import SearchBar from '@/components/note/SearchBar.vue'
-import { formatRelative, todayStr } from '@/utils/time'
+import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
 const store = useNoteStore()
 const app = useAppStore()
-
-const today = todayStr()
 
 /** 编辑器会话：sessionKey 变化时编辑器重新挂载；new→edit 切换不变（保持焦点） */
 const sessionKey = ref(0)
@@ -27,19 +25,52 @@ const searchKeyword = computed<string>({
 })
 const searching = computed(() => store.searchKeyword.trim() !== '')
 
-/** 是否展示列表区（搜索或全部展开时） */
-const showList = computed(() => searching.value || app.showAllList)
-
-/** 列表展示数据：搜索优先；否则全部展开时分页列表；默认空 */
+/** 列表展示数据：搜索优先；否则默认全部（未归档在前，归档置底） */
 const displayNotes = computed(() => {
   if (searching.value) return store.searchResults
-  if (app.showAllList) return store.pagedNotes
-  return []
+  return store.sortedNotes
 })
 
-/** 滚动加载哨兵 */
-const sentinelEl = ref<HTMLDivElement | null>(null)
-let observer: IntersectionObserver | null = null
+/** 日期分组的标题：今天/昨天/完整日期 */
+function dateLabel(date: string): string {
+  const today = new Date()
+  const y = today.getFullYear()
+  const m = String(today.getMonth() + 1).padStart(2, '0')
+  const d = String(today.getDate()).padStart(2, '0')
+  const todayStr = `${y}-${m}-${d}`
+  if (date === todayStr) return '今天'
+  const yesterday = new Date(y, today.getMonth(), today.getDate() - 1)
+  const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+  if (date === yStr) return '昨天'
+  const [yy, mm, dd] = date.split('-').map(Number)
+  try {
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
+    }).format(new Date(yy, (mm || 1) - 1, dd || 1))
+  } catch {
+    return date
+  }
+}
+
+/** 按日期 + 归档态分组的结构（用于渲染分组标题与定位） */
+const groupedNotes = computed(() => {
+  const list = displayNotes.value
+  const groups: { key: string; date: string; archived: boolean; notes: Note[] }[] = []
+  for (const note of list) {
+    // 分组键：归档态 + 日期。未归档与归档即使同一天也分两组（归档置底）。
+    const key = `${note.archived ? '1' : '0'}-${note.date}`
+    let g = groups.find((x) => x.key === key)
+    if (!g) {
+      g = { key, date: note.date, archived: note.archived, notes: [] }
+      groups.push(g)
+    }
+    g.notes.push(note)
+  }
+  return groups
+})
 
 /** 便签标题：标题为空时取正文首行，再为空则"无标题" */
 function noteTitle(note: Note): string {
@@ -52,24 +83,18 @@ function noteTitle(note: Note): string {
   return firstLine || '无标题'
 }
 
-function noteUpdatedLabel(note: Note): string {
-  return formatRelative(note.updated_at)
-}
-
 function handleOpen(note: Note): void {
   sessionKey.value++
   editingNote.value = note
 }
 
-function onCreated(note: Note): void {
-  editingNote.value = note
-  if (app.showAllList) void store.loadNotesPage(true)
+function onCreated(): void {
+  // 新建后列表自动反映（store.notes 已 push，sortedNotes 计算属性会更新）
 }
 
 function onDeleted(): void {
   editingNote.value = null
   sessionKey.value++
-  if (app.showAllList) void store.loadNotesPage(true)
 }
 
 function onCloseEditor(): void {
@@ -77,28 +102,21 @@ function onCloseEditor(): void {
   sessionKey.value++
 }
 
-function setupObserver(): void {
-  if (!sentinelEl.value || typeof IntersectionObserver === 'undefined') return
-  observer = new IntersectionObserver(
-    (entries) => {
-      if (
-        entries[0].isIntersecting &&
-        app.showAllList &&
-        !searching.value &&
-        store.notesHasMore &&
-        !store.notesLoading
-      ) {
-        void store.loadNotesPage()
-      }
-    },
-    { root: null, rootMargin: '200px' }
-  )
-  observer.observe(sentinelEl.value)
+/** 分组容器引用：key=分组键 → el，用于日期跳转滚动 */
+const groupRefs = ref<Map<string, HTMLElement>>(new Map())
+function setGroupRef(key: string, el: HTMLElement | null): void {
+  if (el) groupRefs.value.set(key, el)
+  else groupRefs.value.delete(key)
 }
 
-function teardownObserver(): void {
-  observer?.disconnect()
-  observer = null
+/** 选日期 → 滚动到对应分组（优先未归档组，无则归档组） */
+function scrollToSelectedDate(date: string): void {
+  // 找第一个匹配该日期的分组（未归档优先，因为未归档在前）
+  const target = groupedNotes.value.find((g) => g.date === date)
+  if (!target) return
+  const el = groupRefs.value.get(target.key)
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 // 便签日期集合变化 → 同步全局日历标记
@@ -109,19 +127,11 @@ watch(
   }
 )
 
-// 「全部」展开时：首次加载首批 + setup observer；收起时 teardown
+// 全局选中日期变化 → 滚动到对应分组
 watch(
-  () => app.showAllList,
-  async (open) => {
-    if (open) {
-      if (store.pagedNotes.length === 0) await store.loadNotesPage(true)
-      nextTick(() => {
-        teardownObserver()
-        setupObserver()
-      })
-    } else {
-      teardownObserver()
-    }
+  () => app.selectedDate,
+  (date) => {
+    nextTick(() => scrollToSelectedDate(date))
   }
 )
 
@@ -132,10 +142,6 @@ onMounted(async () => {
     console.error('[qingji] 便签数据加载失败：', err)
   }
   app.setMarkedDates(store.noteDates)
-})
-
-onBeforeUnmount(() => {
-  teardownObserver()
 })
 </script>
 
@@ -148,14 +154,14 @@ onBeforeUnmount(() => {
     <NoteEditor
       :key="sessionKey"
       :note="editingNote"
-      :date="today"
+      :date="app.selectedDate"
       @created="onCreated"
       @deleted="onDeleted"
       @close="onCloseEditor"
     />
 
-    <!-- 列表区：搜索结果 / 全部分页列表（按需显示） -->
-    <div v-if="showList" class="notes-list-area">
+    <!-- 便签列表（默认常显，按日期分组） -->
+    <div class="notes-list-area">
       <div v-if="displayNotes.length === 0" class="empty-state">
         <svg
           viewBox="0 0 24 24"
@@ -181,35 +187,61 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <div v-else class="note-list">
-        <button
-          v-for="note in displayNotes"
-          :key="note.id"
-          type="button"
-          class="note-row"
-          :class="{
-            'is-selected': note.id === editingNote?.id,
-            'is-archived': note.archived
-          }"
-          @click="handleOpen(note)"
-        >
-          <span class="note-row-title">{{ noteTitle(note) }}</span>
-          <span class="note-row-meta">
-            修改于 {{ noteUpdatedLabel(note) }}
-            <span v-if="note.archived" class="archived-tag">· 已归档</span>
-          </span>
-        </button>
-      </div>
+      <template v-else>
+        <!-- 搜索结果：平铺，不分日期分组 -->
+        <div v-if="searching" class="note-list">
+          <button
+            v-for="note in displayNotes"
+            :key="note.id"
+            type="button"
+            class="note-row"
+            :class="{
+              'is-selected': note.id === editingNote?.id,
+              'is-archived': note.archived
+            }"
+            @click="handleOpen(note)"
+          >
+            <span class="note-row-title">{{ noteTitle(note) }}</span>
+            <span class="note-row-meta">
+              创建于 {{ formatCreatedDate(note.created_at) }} · 修改 {{ formatModifiedDate(note.updated_at) }}
+              <span v-if="note.archived" class="archived-tag">· 已归档</span>
+            </span>
+          </button>
+        </div>
 
-      <!-- 滚动加载哨兵（仅全部展开且非搜索时生效） -->
-      <div v-if="app.showAllList && !searching" ref="sentinelEl" class="sentinel" aria-hidden="true"></div>
-      <div v-if="searching" class="load-hint">
-        共 {{ displayNotes.length }} 条匹配
-      </div>
-      <div v-else-if="store.notesLoading" class="load-hint">加载中…</div>
-      <div v-else-if="!store.notesHasMore && displayNotes.length > 0" class="load-hint">
-        没有更多了
-      </div>
+        <!-- 默认列表：按日期分组 -->
+        <div v-else>
+          <div
+            v-for="group in groupedNotes"
+            :key="group.key"
+            :ref="(el) => setGroupRef(group.key, el as HTMLElement)"
+            class="note-group"
+          >
+            <div class="note-group-header">
+              <span class="note-group-date">{{ dateLabel(group.date) }}</span>
+              <span v-if="group.archived" class="note-group-archived">已归档</span>
+            </div>
+            <div class="note-list">
+              <button
+                v-for="note in group.notes"
+                :key="note.id"
+                type="button"
+                class="note-row"
+                :class="{
+                  'is-selected': note.id === editingNote?.id,
+                  'is-archived': note.archived
+                }"
+                @click="handleOpen(note)"
+              >
+                <span class="note-row-title">{{ noteTitle(note) }}</span>
+                <span class="note-row-meta">
+                  创建于 {{ formatCreatedDate(note.created_at) }} · 修改 {{ formatModifiedDate(note.updated_at) }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
   </section>
 </template>
@@ -225,7 +257,36 @@ onBeforeUnmount(() => {
 .notes-list-area {
   display: flex;
   flex-direction: column;
+  gap: 1rem;
+}
+
+.note-group {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
+  scroll-margin-top: 80px;
+}
+
+.note-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.note-group-date {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.note-group-archived {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-soft);
+  padding: 0.125rem 0.4rem;
+  border-radius: 9999px;
 }
 
 .note-list {
@@ -281,19 +342,6 @@ onBeforeUnmount(() => {
 }
 .archived-tag {
   opacity: 0.85;
-}
-
-.sentinel {
-  height: 1px;
-  width: 100%;
-}
-
-.load-hint {
-  text-align: center;
-  padding: 0.75rem 0;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  opacity: 0.7;
 }
 
 /* 空状态 */

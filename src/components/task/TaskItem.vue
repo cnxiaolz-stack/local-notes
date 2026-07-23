@@ -2,7 +2,7 @@
 import { computed, nextTick, ref } from 'vue'
 import type { Task } from '@/types'
 import TaskCheckbox from './TaskCheckbox.vue'
-import { formatRelative } from '@/utils/time'
+import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
 const props = defineProps<{ task: Task; readonly?: boolean }>()
 const emit = defineEmits<{
@@ -11,8 +11,8 @@ const emit = defineEmits<{
   delete: []
 }>()
 
-const createdLabel = computed(() => formatRelative(props.task.created_at))
-const updatedLabel = computed(() => formatRelative(props.task.updated_at))
+const createdLabel = computed(() => formatCreatedDate(props.task.created_at))
+const updatedLabel = computed(() => formatModifiedDate(props.task.updated_at))
 
 const isEditing = ref(false)
 const draft = ref('')

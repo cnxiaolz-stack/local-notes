@@ -7,7 +7,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Note } from '@/types'
 import { useNoteStore } from '@/stores/note'
-import { formatRelative } from '@/utils/time'
+import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
 const props = defineProps<{ note: Note | null; date: string }>()
 const emit = defineEmits<{
@@ -47,10 +47,10 @@ const saveLabel = computed(() => {
 const isPersisted = computed(() => currentNote.value !== null)
 const isArchived = computed(() => currentNote.value?.archived ?? false)
 const createdLabel = computed(() =>
-  currentNote.value ? formatRelative(currentNote.value.created_at) : ''
+  currentNote.value ? formatCreatedDate(currentNote.value.created_at) : ''
 )
 const updatedLabel = computed(() =>
-  currentNote.value ? formatRelative(currentNote.value.updated_at) : ''
+  currentNote.value ? formatModifiedDate(currentNote.value.updated_at) : ''
 )
 
 onMounted(() => {

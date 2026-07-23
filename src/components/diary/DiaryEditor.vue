@@ -2,7 +2,7 @@
 // 日记编辑器：大文本输入区 + 日期显示 + 1000ms debounce 自动保存
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
-import { formatRelative } from '@/utils/time'
+import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
 const props = defineProps<{
   /** 当前编辑的日期（YYYY-MM-DD） */
@@ -77,11 +77,11 @@ const placeholder = computed(() =>
 
 const createdLabel = computed(() => {
   const d = store.currentDiary
-  return d && d.date === props.date ? formatRelative(d.created_at) : ''
+  return d && d.date === props.date ? formatCreatedDate(d.created_at) : ''
 })
 const updatedLabel = computed(() => {
   const d = store.currentDiary
-  return d && d.date === props.date ? formatRelative(d.updated_at) : ''
+  return d && d.date === props.date ? formatModifiedDate(d.updated_at) : ''
 })
 
 const saveLabel = computed(() => {

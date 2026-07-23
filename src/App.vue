@@ -17,14 +17,14 @@ const pageTitle = computed(() => {
   return found?.title ?? '轻记'
 })
 
-// 仅在今日/日记页显示全局日历按钮（便签页列表不再按日期过滤，无需日历）
+// 今日/便签/日记三页显示全局日历按钮（任务按日期过滤、便签按日期滚动定位、日记按日期编辑）
 const showDatePicker = computed(() =>
-  ['today', 'diary'].includes(String(route.name ?? ''))
+  ['today', 'notes', 'diary'].includes(String(route.name ?? ''))
 )
 
-// 今日/便签/日记三页显示「全部」按钮（设置页不显示）
+// 今日/日记两页显示「全部」按钮（便签默认常显全部，无需此按钮）
 const showAllListBtn = computed(() =>
-  ['today', 'notes', 'diary'].includes(String(route.name ?? ''))
+  ['today', 'diary'].includes(String(route.name ?? ''))
 )
 
 // 切换页面自动收起「全部列表」

@@ -36,6 +36,39 @@ export function formatRelative(ts: number): string {
 }
 
 /**
+ * 修改时间格式化：
+ * - 24 小时内：X小时前（不足 1 小时显示「刚刚」，不足 1 分钟也显示「刚刚」）
+ * - 24 小时 ~ 7 天内：星期几（如「星期三」）
+ * - 超过 7 天：完整日期 YYYY年M月D日
+ */
+export function formatModifiedDate(ts: number): string {
+  const now = Date.now()
+  const diff = now - ts
+  if (diff < 0) return '刚刚'
+  const hour = 3_600_000
+  const day = 86_400_000
+  if (diff < hour) return '刚刚'
+  if (diff < day) return `${Math.floor(diff / hour)}小时前`
+  if (diff < 7 * day) {
+    const date = new Date(ts)
+    try {
+      return new Intl.DateTimeFormat('zh-CN', { weekday: 'long' }).format(date)
+    } catch {
+      return `${date.getMonth() + 1}月${date.getDate()}日`
+    }
+  }
+  return formatCreatedDate(ts)
+}
+
+/**
+ * 创建时间格式化：恒为完整日期 YYYY年M月D日。
+ */
+export function formatCreatedDate(ts: number): string {
+  const d = new Date(ts)
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+/**
  * 将时间戳格式化为完整的日期时间字符串。
  * 例如：2026年7月23日 14:30
  */
