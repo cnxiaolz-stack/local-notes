@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// 日记主视图：列表（按月分组，滚动加载）+ 编辑区（绑定全局 selectedDate）。
+// 日记主视图：纵向布局——上方当天日记输入框，下方按需展开历史日记列表。
 // 日期切换由全局 header 的日历按钮驱动（app.selectedDate）。
-// 移动端为上下结构（列表在上限高滚动，编辑器在下），桌面端为左右分栏。
+// 点 header「全部」按钮（app.showAllList）在下方展开全部历史日记（按月分组，滚动加载）。
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
 import { useAppStore } from '@/stores/app'
@@ -16,8 +16,7 @@ const diaryContent = ref<string>('')
 /** 切换日期时的加载态（也用于首次挂载，触发旧编辑器卸载并 flushSave） */
 const isLoading = ref<boolean>(true)
 
-/** 滚动加载：列表侧栏为独立滚动容器，sentinel 进入可视区触发加载 */
-const sidebarEl = ref<HTMLElement | null>(null)
+/** 滚动加载哨兵 */
 const sentinelEl = ref<HTMLDivElement | null>(null)
 let observer: IntersectionObserver | null = null
 
@@ -40,7 +39,7 @@ function handleSelect(date: string): void {
 }
 
 function setupObserver(): void {
-  if (!sentinelEl.value || !sidebarEl.value || typeof IntersectionObserver === 'undefined') return
+  if (!sentinelEl.value || typeof IntersectionObserver === 'undefined') return
   observer = new IntersectionObserver(
     (entries) => {
       if (
@@ -51,9 +50,14 @@ function setupObserver(): void {
         void diaryStore.loadDiariesPage()
       }
     },
-    { root: sidebarEl.value, rootMargin: '100px' }
+    { root: null, rootMargin: '200px' }
   )
   observer.observe(sentinelEl.value)
+}
+
+function teardownObserver(): void {
+  observer?.disconnect()
+  observer = null
 }
 
 // 全局选中日期变化 → 重新加载该日日记
@@ -64,66 +68,74 @@ watch(
   }
 )
 
-// 日记日期集合变化 → 同步全局日历标记 + 重置分页列表（覆盖保存/删除后的刷新）
+// 日记日期集合变化 → 同步全局日历标记
 watch(
   () => diaryStore.diaryDates,
   (dates) => {
     app.setMarkedDates(dates)
-    void diaryStore.loadDiariesPage(true)
+  }
+)
+
+// 「全部」展开时：首次加载首批 + setup observer；收起时 teardown
+watch(
+  () => app.showAllList,
+  async (open) => {
+    if (open) {
+      if (diaryStore.pagedDiaries.length === 0) await diaryStore.loadDiariesPage(true)
+      nextTick(() => {
+        teardownObserver()
+        setupObserver()
+      })
+    } else {
+      teardownObserver()
+    }
   }
 )
 
 onMounted(async () => {
   try {
-    await diaryStore.loadDiaryDates() // 触发上方 watch → setMarkedDates + loadDiariesPage(true) 首次加载列表
+    await diaryStore.loadDiaryDates()
   } catch (err) {
     console.error('[qingji] 日记数据加载失败：', err)
   }
   await loadDate(app.selectedDate)
-  nextTick(() => setupObserver())
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
-  observer = null
+  teardownObserver()
 })
 </script>
 
 <template>
   <section class="diary-view">
-    <div class="diary-layout">
-      <!-- 侧栏：日记列表（滚动加载），桌面常驻左侧，移动端顶部限高滚动 -->
-      <aside ref="sidebarEl" class="diary-sidebar">
-        <div class="sidebar-body">
-          <DiaryList
-            :diaries="diaryStore.pagedDiaries"
-            :selected-date="app.selectedDate"
-            @select="handleSelect"
-          />
-        </div>
-        <!-- 滚动加载哨兵 -->
-        <div ref="sentinelEl" class="sentinel" aria-hidden="true"></div>
-        <div v-if="diaryStore.diariesLoading" class="load-hint">加载中…</div>
-        <div
-          v-else-if="!diaryStore.diariesHasMore && diaryStore.pagedDiaries.length > 0"
-          class="load-hint"
-        >
-          没有更多了
-        </div>
-      </aside>
+    <!-- 当天日记输入框 -->
+    <div class="diary-main">
+      <DiaryEditor
+        v-if="!isLoading"
+        :key="app.selectedDate"
+        :date="app.selectedDate"
+        :initial-content="diaryContent"
+      />
+      <div v-else class="diary-loading">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        <span>加载中…</span>
+      </div>
+    </div>
 
-      <!-- 编辑区 -->
-      <div class="diary-main">
-        <DiaryEditor
-          v-if="!isLoading"
-          :key="app.selectedDate"
-          :date="app.selectedDate"
-          :initial-content="diaryContent"
-        />
-        <div v-else class="diary-loading">
-          <span class="loading-spinner" aria-hidden="true"></span>
-          <span>加载中…</span>
-        </div>
+    <!-- 全部历史日记列表（按需展开） -->
+    <div v-if="app.showAllList" class="diary-history">
+      <DiaryList
+        :diaries="diaryStore.pagedDiaries"
+        :selected-date="app.selectedDate"
+        @select="handleSelect"
+      />
+      <div ref="sentinelEl" class="sentinel" aria-hidden="true"></div>
+      <div v-if="diaryStore.diariesLoading" class="load-hint">加载中…</div>
+      <div
+        v-else-if="!diaryStore.diariesHasMore && diaryStore.pagedDiaries.length > 0"
+        class="load-hint"
+      >
+        没有更多了
       </div>
     </div>
   </section>
@@ -133,70 +145,10 @@ onBeforeUnmount(() => {
 .diary-view {
   display: flex;
   flex-direction: column;
-}
-
-.diary-layout {
-  display: flex;
-  flex-direction: column;
   gap: 1rem;
-}
-@media (min-width: 768px) {
-  .diary-layout {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-}
-
-/* 侧栏：独立滚动容器，桌面左 320px，移动端顶部限高 */
-.diary-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-  max-height: 40vh;
-  overflow-y: auto;
-  padding: 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background-color: var(--color-surface);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-@media (min-width: 768px) {
-  .diary-sidebar {
-    width: 320px;
-    flex-shrink: 0;
-    max-width: none;
-    max-height: calc(100vh - 8rem);
-    position: sticky;
-    top: 1rem;
-  }
-}
-
-.sidebar-body {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.sentinel {
-  height: 1px;
-  width: 100%;
-  flex-shrink: 0;
-}
-
-.load-hint {
-  text-align: center;
-  padding: 0.5rem 0;
-  font-size: 0.72rem;
-  color: var(--color-text-secondary);
-  opacity: 0.7;
-  flex-shrink: 0;
 }
 
 .diary-main {
-  flex: 1 1 0%;
-  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -206,7 +158,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 0.625rem;
-  min-height: 60vh;
+  min-height: 40vh;
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   border-radius: 0.75rem;
@@ -228,9 +180,25 @@ onBeforeUnmount(() => {
     transform: rotate(360deg);
   }
 }
-@media (min-width: 768px) {
-  .diary-loading {
-    min-height: calc(100vh - 220px);
-  }
+
+.diary-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.sentinel {
+  height: 1px;
+  width: 100%;
+}
+
+.load-hint {
+  text-align: center;
+  padding: 0.75rem 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
 }
 </style>

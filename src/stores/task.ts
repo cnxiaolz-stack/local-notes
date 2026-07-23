@@ -27,6 +27,13 @@ export const useTaskStore = defineStore('task', () => {
   /** 有任务记录的日期集合（用于全局日历标记） */
   const taskDates = ref<string[]>([])
 
+  /** 分页列表（按 created_at DESC，供「全部任务」列表滚动加载） */
+  const PAGE_SIZE = 100
+  const pagedTasks = ref<Task[]>([])
+  const tasksOffset = ref<number>(0)
+  const tasksHasMore = ref<boolean>(true)
+  const tasksLoading = ref<boolean>(false)
+
   /** 完成进度 0..1 */
   const progress = computed<number>(() => {
     const total = tasks.value.length
@@ -44,6 +51,28 @@ export const useTaskStore = defineStore('task', () => {
   /** 加载所有有任务的日期（用于日历标记） */
   async function loadTaskDates(): Promise<void> {
     taskDates.value = await getStorage().getTaskDates()
+  }
+
+  /** 加载分页任务列表；reset=true 时重置从头加载（供「全部任务」列表） */
+  async function loadTasksPage(reset = false): Promise<void> {
+    if (tasksLoading.value) return
+    if (reset) {
+      pagedTasks.value = []
+      tasksOffset.value = 0
+      tasksHasMore.value = true
+    }
+    if (!tasksHasMore.value) return
+    tasksLoading.value = true
+    try {
+      const batch = await getStorage().getTasksPage(PAGE_SIZE, tasksOffset.value)
+      pagedTasks.value = reset ? batch : [...pagedTasks.value, ...batch]
+      tasksOffset.value += batch.length
+      tasksHasMore.value = batch.length === PAGE_SIZE
+    } catch (err) {
+      console.error('[qingji] 加载任务分页失败：', err)
+    } finally {
+      tasksLoading.value = false
+    }
   }
 
   /** 新增任务（追加到末尾，颜色与上一个任务不同） */
@@ -92,9 +121,13 @@ export const useTaskStore = defineStore('task', () => {
     currentDate,
     tasks,
     taskDates,
+    pagedTasks,
+    tasksHasMore,
+    tasksLoading,
     progress,
     loadTasks,
     loadTaskDates,
+    loadTasksPage,
     addTask,
     toggleTask,
     updateTask,

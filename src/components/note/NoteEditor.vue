@@ -223,7 +223,7 @@ async function handleToggleArchive(): Promise<void> {
       ref="contentRef"
       v-model="contentDraft"
       class="editor-content"
-      placeholder="写点什么…（清空内容将自动删除该便签）"
+      placeholder="写点什么…"
       @input="onContentInput"
     ></textarea>
 

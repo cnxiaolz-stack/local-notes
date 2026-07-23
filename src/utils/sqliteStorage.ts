@@ -165,6 +165,14 @@ export class SQLiteStorage implements StorageAdapter {
     return rows.map(rowToTask)
   }
 
+  async getTasksPage(limit: number, offset: number): Promise<Task[]> {
+    const rows = await this.getDb().select<TaskRow[]>(
+      'SELECT * FROM tasks ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
+    )
+    return rows.map(rowToTask)
+  }
+
   async getTaskDates(): Promise<string[]> {
     const rows = await this.getDb().select<{ date: string }[]>(
       'SELECT DISTINCT date FROM tasks ORDER BY date ASC'

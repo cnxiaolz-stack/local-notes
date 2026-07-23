@@ -11,6 +11,8 @@ export interface StorageAdapter {
   // ---- Tasks ----
   getTasksByDate(date: string): Promise<Task[]>
   getAllTasks(): Promise<Task[]>
+  /** 分页查询任务（按 created_at DESC），用于全部任务列表滚动加载 */
+  getTasksPage(limit: number, offset: number): Promise<Task[]>
   createTask(task: Omit<Task, 'id' | 'created_at' | 'updated_at'>): Promise<Task>
   updateTask(id: string, patch: Partial<Task>): Promise<Task>
   deleteTask(id: string): Promise<void>

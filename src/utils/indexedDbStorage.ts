@@ -83,6 +83,10 @@ export class IndexedDbStorage implements StorageAdapter {
     })
   }
 
+  async getTasksPage(limit: number, offset: number): Promise<Task[]> {
+    return getDb().tasks.orderBy('created_at').reverse().offset(offset).limit(limit).toArray()
+  }
+
   async getTaskDates(): Promise<string[]> {
     const items = await getDb().tasks.toArray()
     const set = new Set(items.map((t) => t.date))

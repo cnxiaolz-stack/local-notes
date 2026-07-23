@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// 便签主视图：上方输入（主要位置）+ 下方全部便签列表（滚动加载）。
-// 搜索为次要动作（右上图标按钮展开），搜索时全量内存过滤。
+// 便签主视图：上方搜索框（常驻）+ 便签输入框（主要位置）。
+// 列表按需显示：搜索时显示搜索结果；点 header「全部」按钮（app.showAllList）展开全部分页列表；默认不显示列表。
 // 便签列表恒为全部（按 updated_at DESC），不再按日期过滤。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useNoteStore } from '@/stores/note'
@@ -19,8 +19,6 @@ const today = todayStr()
 const sessionKey = ref(0)
 const editingNote = ref<Note | null>(null)
 
-/** 搜索框展开态（次要动作，默认收起） */
-const searchOpen = ref(false)
 const searchKeyword = computed<string>({
   get: () => store.searchKeyword,
   set: (v) => {
@@ -29,10 +27,15 @@ const searchKeyword = computed<string>({
 })
 const searching = computed(() => store.searchKeyword.trim() !== '')
 
-/** 列表展示数据：搜索时用全量内存过滤结果，否则用分页列表 */
-const displayNotes = computed(() =>
-  searching.value ? store.searchResults : store.pagedNotes
-)
+/** 是否展示列表区（搜索或全部展开时） */
+const showList = computed(() => searching.value || app.showAllList)
+
+/** 列表展示数据：搜索优先；否则全部展开时分页列表；默认空 */
+const displayNotes = computed(() => {
+  if (searching.value) return store.searchResults
+  if (app.showAllList) return store.pagedNotes
+  return []
+})
 
 /** 滚动加载哨兵 */
 const sentinelEl = ref<HTMLDivElement | null>(null)
@@ -59,32 +62,19 @@ function handleOpen(note: Note): void {
 }
 
 function onCreated(note: Note): void {
-  // 草稿落库：切换为编辑该便签，不改变 sessionKey（保持编辑器挂载与焦点）
   editingNote.value = note
-  void store.loadNotesPage(true)
+  if (app.showAllList) void store.loadNotesPage(true)
 }
 
 function onDeleted(): void {
   editingNote.value = null
   sessionKey.value++
-  void store.loadNotesPage(true)
+  if (app.showAllList) void store.loadNotesPage(true)
 }
 
 function onCloseEditor(): void {
   editingNote.value = null
   sessionKey.value++
-}
-
-function openSearch(): void {
-  searchOpen.value = true
-  nextTick(() => {
-    document.querySelector<HTMLInputElement>('.notes-view .search-input')?.focus()
-  })
-}
-
-function closeSearch(): void {
-  searchOpen.value = false
-  store.searchKeyword = ''
 }
 
 function setupObserver(): void {
@@ -93,6 +83,7 @@ function setupObserver(): void {
     (entries) => {
       if (
         entries[0].isIntersecting &&
+        app.showAllList &&
         !searching.value &&
         store.notesHasMore &&
         !store.notesLoading
@@ -105,6 +96,11 @@ function setupObserver(): void {
   observer.observe(sentinelEl.value)
 }
 
+function teardownObserver(): void {
+  observer?.disconnect()
+  observer = null
+}
+
 // 便签日期集合变化 → 同步全局日历标记
 watch(
   () => store.noteDates,
@@ -113,73 +109,40 @@ watch(
   }
 )
 
+// 「全部」展开时：首次加载首批 + setup observer；收起时 teardown
+watch(
+  () => app.showAllList,
+  async (open) => {
+    if (open) {
+      if (store.pagedNotes.length === 0) await store.loadNotesPage(true)
+      nextTick(() => {
+        teardownObserver()
+        setupObserver()
+      })
+    } else {
+      teardownObserver()
+    }
+  }
+)
+
 onMounted(async () => {
   try {
-    await Promise.all([store.loadNotes(), store.loadNotesPage(true)])
+    await store.loadNotes()
   } catch (err) {
     console.error('[qingji] 便签数据加载失败：', err)
   }
   app.setMarkedDates(store.noteDates)
-  nextTick(() => setupObserver())
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
-  observer = null
+  teardownObserver()
 })
 </script>
 
 <template>
   <section class="notes-view">
-    <!-- 顶部工具栏：搜索（次要，右上） -->
-    <div class="notes-toolbar">
-      <div v-if="searchOpen" class="search-wrap">
-        <SearchBar v-model="searchKeyword" />
-        <button
-          type="button"
-          class="icon-btn"
-          aria-label="关闭搜索"
-          @click="closeSearch"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
-      <button
-        v-else
-        type="button"
-        class="icon-btn search-toggle"
-        aria-label="搜索便签"
-        @click="openSearch"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="18"
-          height="18"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-      </button>
-    </div>
+    <!-- 搜索框（常驻顶部，次要位置） -->
+    <SearchBar v-model="searchKeyword" />
 
     <!-- 主要位置：便签输入框（单一，无标题） -->
     <NoteEditor
@@ -191,8 +154,8 @@ onBeforeUnmount(() => {
       @close="onCloseEditor"
     />
 
-    <!-- 下方：全部便签列表（滚动加载） -->
-    <div class="notes-list-area">
+    <!-- 列表区：搜索结果 / 全部分页列表（按需显示） -->
+    <div v-if="showList" class="notes-list-area">
       <div v-if="displayNotes.length === 0" class="empty-state">
         <svg
           viewBox="0 0 24 24"
@@ -238,8 +201,8 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <!-- 滚动加载哨兵 -->
-      <div ref="sentinelEl" class="sentinel" aria-hidden="true"></div>
+      <!-- 滚动加载哨兵（仅全部展开且非搜索时生效） -->
+      <div v-if="app.showAllList && !searching" ref="sentinelEl" class="sentinel" aria-hidden="true"></div>
       <div v-if="searching" class="load-hint">
         共 {{ displayNotes.length }} 条匹配
       </div>
@@ -256,47 +219,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.notes-toolbar {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.search-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-.search-wrap :deep(.search-bar) {
-  flex: 1 1 0%;
-}
-
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 0.5rem;
-  border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease,
-    transform 120ms ease;
-}
-.icon-btn:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-brand);
-}
-.icon-btn:active {
-  transform: scale(0.94);
-}
-.search-toggle {
-  margin-left: auto;
 }
 
 /* 列表区 */
