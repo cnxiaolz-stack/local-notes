@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 日记编辑器：大文本输入区 + 日期显示 + 1000ms debounce 自动保存
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
 import { formatRelative } from '@/utils/time'
 
@@ -173,6 +173,62 @@ function onInput(): void {
   scheduleSave()
   autoGrow()
 }
+
+/**
+ * Tab 键在光标处插入制表符（不跳出焦点）。
+ * 有选区时：将选区整体缩进（每行前加一个制表符）；Shift+Tab 反向缩进。
+ * 无选区时：直接插入一个制表符，光标移到制表符后。
+ */
+function onKeyDown(e: KeyboardEvent): void {
+  if (e.key !== 'Tab') return
+  e.preventDefault()
+  const el = textareaRef.value
+  if (!el) return
+  const { selectionStart: start, selectionEnd: end, value } = el
+  const TAB = '\t'
+
+  if (start === end) {
+    // 无选区：光标处插入制表符
+    const next = value.slice(0, start) + TAB + value.slice(end)
+    draft.value = next
+    nextTick(() => {
+      el.selectionStart = el.selectionEnd = start + TAB.length
+    })
+    return
+  }
+
+  // 有选区：按行缩进
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1
+  const selected = value.slice(lineStart, end)
+  if (e.shiftKey) {
+    // 反向缩进：去掉每行行首的一个制表符（若无可去则保持原样）
+    const lines = selected.split('\n')
+    const dedented = lines
+      .map((line) => {
+        if (line.startsWith(TAB)) return line.slice(TAB.length)
+        // 兼容：行首是 2 空格也视作缩进去掉
+        if (line.startsWith('  ')) return line.slice(2)
+        return line
+      })
+      .join('\n')
+    const next = value.slice(0, lineStart) + dedented + value.slice(end)
+    draft.value = next
+    nextTick(() => {
+      el.selectionStart = lineStart
+      el.selectionEnd = lineStart + dedented.length
+    })
+  } else {
+    // 正向缩进：每行行首加制表符
+    const lines = selected.split('\n')
+    const indented = lines.map((line) => TAB + line).join('\n')
+    const next = value.slice(0, lineStart) + indented + value.slice(end)
+    draft.value = next
+    nextTick(() => {
+      el.selectionStart = lineStart
+      el.selectionEnd = lineStart + indented.length
+    })
+  }
+}
 </script>
 
 <template>
@@ -199,6 +255,7 @@ function onInput(): void {
       :placeholder="placeholder"
       :aria-label="`${dateLabel} 日记`"
       @input="onInput"
+      @keydown="onKeyDown"
     ></textarea>
   </div>
 </template>
@@ -308,6 +365,9 @@ function onInput(): void {
   resize: none;
   overflow: hidden;
   font-family: inherit;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  -o-tab-size: 2;
 }
 .editor-textarea::placeholder {
   color: var(--color-text-secondary);
