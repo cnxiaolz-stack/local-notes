@@ -187,12 +187,11 @@ function onInput(): void {
   autoGrow()
 }
 
-/** 正向缩进单位：4 个空格 */
-const INDENT = '    '
-
 /**
- * Tab 键处理：光标处插入 4 空格 / 选区按行缩进；Shift+Tab 反向缩进。
- * 用 setRangeText（HTML5 标准 API）插入文本，保留浏览器原生撤销栈（Ctrl+Z 可撤销）。
+ * Tab 键处理：插入制表符 \t（Shift+Tab 反向缩进）。
+ * - 无选区 Tab：用 execCommand('insertText') 插入 \t，保留原生撤销栈（Ctrl+Z 可撤销）
+ * - 无选区 Shift+Tab：删除光标前的一个缩进单位（\t 或最多 4 空格）
+ * - 有选区 Tab/Shift+Tab：每行行首加/去 \t（或最多 4 空格）
  * Shift 检测用 e.shiftKey || shiftPressed 双重判断，shiftPressed 兜底 WebView2 异常。
  */
 function onKeyDown(e: KeyboardEvent): void {
@@ -204,12 +203,30 @@ function onKeyDown(e: KeyboardEvent): void {
 
   // 无选区
   if (start === end) {
-    if (isShift) return // Shift+Tab 无选区：放行，让浏览器默认焦点回退
+    if (isShift) {
+      // Shift+Tab 无选区：删除光标前的一个缩进单位
+      e.preventDefault()
+      const before = value.slice(0, start)
+      if (before.endsWith('\t')) {
+        // 光标前是 \t，删掉它
+        el.setRangeText('', start - 1, start, 'end')
+      } else {
+        // 统计光标前连续空格数，删掉 min(连续数, 4) 个
+        let remove = 0
+        while (remove < 4 && before[start - 1 - remove] === ' ') remove++
+        if (remove > 0) el.setRangeText('', start - remove, start, 'end')
+      }
+      draft.value = el.value
+      scheduleSave()
+      autoGrow()
+      return
+    }
+    // Tab 无选区：插入 \t（execCommand 保留撤销栈）
     e.preventDefault()
-    el.setRangeText(INDENT, start, end, 'end')
-    draft.value = el.value
-    scheduleSave()
-    autoGrow()
+    document.execCommand('insertText', false, '\t')
+    // 不手动同步 draft，让 v-model 的 input 事件自然同步
+    // autoGrow 延迟一帧，避免干扰撤销栈
+    requestAnimationFrame(() => autoGrow())
     return
   }
 
@@ -219,10 +236,11 @@ function onKeyDown(e: KeyboardEvent): void {
   const selected = value.slice(lineStart, end)
 
   if (isShift) {
-    // 反向缩进：每行行首去掉最多 4 个空格
+    // 反向缩进：每行行首去掉 \t 或最多 4 空格
     const dedented = selected
       .split('\n')
       .map((line) => {
+        if (line.startsWith('\t')) return line.slice(1)
         let remove = 0
         while (remove < 4 && line[remove] === ' ') remove++
         return line.slice(remove)
@@ -230,10 +248,10 @@ function onKeyDown(e: KeyboardEvent): void {
       .join('\n')
     el.setRangeText(dedented, lineStart, end, 'select')
   } else {
-    // 正向缩进：每行行首加 4 个空格
+    // 正向缩进：每行行首加 \t
     const indented = selected
       .split('\n')
-      .map((line) => INDENT + line)
+      .map((line) => '\t' + line)
       .join('\n')
     el.setRangeText(indented, lineStart, end, 'select')
   }
@@ -377,6 +395,9 @@ function onKeyDown(e: KeyboardEvent): void {
   resize: none;
   overflow: hidden;
   font-family: inherit;
+  /* 制表符显示宽度为 4 个字符宽 */
+  tab-size: 4;
+  -moz-tab-size: 4;
 }
 .editor-textarea::placeholder {
   color: var(--color-text-secondary);
