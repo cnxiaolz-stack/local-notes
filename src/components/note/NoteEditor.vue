@@ -231,7 +231,6 @@ async function handleToggleArchive(): Promise<void> {
       <p v-if="isPersisted" class="editor-time">
         创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
       </p>
-      <p v-else class="editor-time editor-time-hint">未保存 · 输入内容后自动保存</p>
       <div class="editor-actions">
         <span v-if="isArchived" class="archived-badge">已归档</span>
         <button
@@ -381,10 +380,6 @@ async function handleToggleArchive(): Promise<void> {
   color: var(--color-text-secondary);
   opacity: 0.85;
   min-width: 0;
-}
-.editor-time-hint {
-  opacity: 0.65;
-  font-style: italic;
 }
 
 .editor-actions {
