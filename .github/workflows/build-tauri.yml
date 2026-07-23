@@ -77,10 +77,10 @@ jobs:
         shell: bash
         run: |
           # 非打 tag 构建：用 run_number 生成递增版本号，确保 NSIS 识别为新版本并强制覆盖更新
-          # 格式：0.1.0.<run_number>，如 0.1.0.42
+          # 格式：0.1.<run_number>（合法 semver，patch 号递增），如 0.1.20
           node -e "
             const fs = require('fs');
-            const ver = '0.1.0.${{ github.run_number }}';
+            const ver = '0.1.${{ github.run_number }}';
             console.log('设置版本号为:', ver);
             const confPath = 'src-tauri/tauri.conf.json';
             const conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
