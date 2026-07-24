@@ -1,8 +1,12 @@
 <script setup lang="ts">
-// 日记编辑器：
-// - 不使用 v-model（Vue 在 input 事件后会重置 textarea.value，破坏原生撤销栈）
-// - Tab/Shift+Tab 使用 execCommand，由浏览器原生撤销栈管理，Ctrl+Z/Y 不拦截
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+// 日记编辑器：使用 CodeMirror 6
+// Tab/Shift+Tab → indentWithTab（成熟库内置）
+// Ctrl+Z/Y → history + historyKeymap（成熟库内置）
+// 不再自己造撤销轮子
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { EditorView, keymap, placeholder as cmPlaceholder, type ViewUpdate } from '@codemirror/view'
+import { EditorState } from '@codemirror/state'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { useDiaryStore } from '@/stores/diary'
 import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
@@ -14,7 +18,8 @@ const props = defineProps<{
 const store = useDiaryStore()
 
 const draft = ref<string>(props.initialContent)
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const editorRef = ref<HTMLDivElement | null>(null)
+const view = shallowRef<EditorView | null>(null)
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
 const saveStatus = ref<SaveStatus>('idle')
@@ -85,41 +90,87 @@ const saveLabel = computed(() => {
   }
 })
 
-onMounted(() => {
-  const el = textareaRef.value
-  if (el) {
-    el.value = props.initialContent
-  }
-  autoGrow()
+// CodeMirror 主题样式：让编辑器看起来和原来的 textarea 一致
+const editorTheme = EditorView.theme({
+  '&': {
+    fontSize: '1rem',
+    height: '100%',
+    backgroundColor: 'transparent',
+  },
+  '.cm-scroller': {
+    fontFamily: 'inherit',
+    lineHeight: '1.8',
+  },
+  '.cm-content': {
+    caretColor: 'var(--color-accent)',
+    color: 'var(--color-text-primary)',
+    padding: '1.25rem 1.5rem 2rem',
+    tabSize: '4',
+  },
+  '&.cm-focused': {
+    outline: 'none',
+  },
+  '.cm-gutters': {
+    display: 'none',
+  },
+  '.cm-placeholder': {
+    color: 'var(--color-text-secondary)',
+    opacity: '0.55',
+  },
 })
 
+function createEditor(content: string): EditorView {
+  const state = EditorState.create({
+    doc: content,
+    extensions: [
+      history(),
+      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      EditorView.lineWrapping,
+      cmPlaceholder(placeholder.value),
+      EditorView.contentAttributes.of({ 'aria-label': `${dateLabel.value} 日记` }),
+      editorTheme,
+      EditorView.updateListener.of((update: ViewUpdate) => {
+        if (update.docChanged) {
+          draft.value = update.state.doc.toString()
+          scheduleSave()
+        }
+      }),
+    ],
+  })
+  return new EditorView({ state, parent: editorRef.value! })
+}
+
+onMounted(() => {
+  if (editorRef.value) {
+    view.value = createEditor(props.initialContent)
+  }
+})
+
+// 切换日期时重建编辑器（保证撤销栈干净）
 watch(
   () => props.initialContent,
   (newContent) => {
-    const el = textareaRef.value
-    if (!el) return
-    if (el.value === newContent) return
-    el.value = newContent
-    draft.value = newContent
+    const v = view.value
+    if (!v) return
+    if (v.state.doc.toString() === newContent) return
+    v.destroy()
+    view.value = createEditor(newContent)
     lastSavedContent = newContent
-    autoGrow()
+    draft.value = newContent
   }
 )
 
 onBeforeUnmount(() => {
   flushSave()
+  if (view.value) {
+    view.value.destroy()
+    view.value = null
+  }
   if (savedTimer) {
     clearTimeout(savedTimer)
     savedTimer = null
   }
 })
-
-function autoGrow(): void {
-  const el = textareaRef.value
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
-}
 
 function scheduleSave(): void {
   if (debounceTimer) clearTimeout(debounceTimer)
@@ -174,77 +225,6 @@ function flushSave(): void {
     void doSave()
   }
 }
-
-function onInput(): void {
-  const el = textareaRef.value
-  if (el) draft.value = el.value
-  scheduleSave()
-  autoGrow()
-}
-
-function onKeyDown(e: KeyboardEvent): void {
-  if (e.key !== 'Tab') return
-  e.preventDefault()
-
-  const el = textareaRef.value
-  if (!el) return
-
-  const isShift = e.shiftKey
-  const { selectionStart: start, selectionEnd: end, value } = el
-
-  if (start === end) {
-    if (isShift) {
-      // Shift+Tab：选中行首缩进并删除（浏览器原生撤销）
-      const lineStart = value.lastIndexOf('\n', start - 1) + 1
-      const lineContent = value.slice(lineStart, start)
-
-      if (lineContent.startsWith('\t')) {
-        el.setSelectionRange(lineStart, lineStart + 1)
-        document.execCommand('delete', false)
-      } else {
-        let remove = 0
-        while (remove < 4 && lineContent[remove] === ' ') remove++
-        if (remove > 0) {
-          el.setSelectionRange(lineStart, lineStart + remove)
-          document.execCommand('delete', false)
-        }
-      }
-    } else {
-      // Tab：插入制表符（浏览器原生撤销）
-      document.execCommand('insertText', false, '\t')
-    }
-  } else {
-    // 有选区：按行缩进
-    const lineStart = value.lastIndexOf('\n', start - 1) + 1
-    const selected = value.slice(lineStart, end)
-    let result: string
-
-    if (isShift) {
-      result = selected
-        .split('\n')
-        .map((line) => {
-          if (line.startsWith('\t')) return line.slice(1)
-          let remove = 0
-          while (remove < 4 && line[remove] === ' ') remove++
-          return line.slice(remove)
-        })
-        .join('\n')
-    } else {
-      result = selected
-        .split('\n')
-        .map((line) => '\t' + line)
-        .join('\n')
-    }
-
-    el.setSelectionRange(lineStart, end)
-    document.execCommand('insertText', false, result)
-  }
-
-  // execCommand 后同步 draft 和保存
-  draft.value = el.value
-  scheduleSave()
-  autoGrow()
-}
 </script>
 
 <template>
@@ -264,14 +244,7 @@ function onKeyDown(e: KeyboardEvent): void {
       创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
     </p>
 
-    <textarea
-      ref="textareaRef"
-      class="editor-textarea"
-      :placeholder="placeholder"
-      :aria-label="`${dateLabel} 日记`"
-      @input="onInput"
-      @keydown="onKeyDown"
-    ></textarea>
+    <div ref="editorRef" class="editor-cm-wrap"></div>
   </div>
 </template>
 
@@ -359,33 +332,31 @@ function onKeyDown(e: KeyboardEvent): void {
   50% { opacity: 0.3; }
 }
 
-.editor-textarea {
-  display: block;
-  width: 100%;
+.editor-cm-wrap {
   flex: 1 1 auto;
   min-height: 60vh;
-  margin: 0;
-  padding: 1.25rem 1.5rem 2rem;
-  font-size: 1rem;
-  line-height: 1.8;
-  color: var(--color-text-primary);
-  background-color: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  overflow: hidden;
-  font-family: inherit;
-  tab-size: 4;
-  -moz-tab-size: 4;
+  overflow: auto;
 }
-.editor-textarea::placeholder {
-  color: var(--color-text-secondary);
-  opacity: 0.55;
+
+.editor-cm-wrap :deep(.cm-editor) {
+  height: 100%;
+  min-height: 60vh;
+}
+
+.editor-cm-wrap :deep(.cm-scroller) {
+  overflow: auto;
 }
 
 @media (min-width: 768px) {
-  .editor-textarea {
+  .editor-cm-wrap {
     min-height: calc(100vh - 220px);
+  }
+
+  .editor-cm-wrap :deep(.cm-editor) {
+    min-height: calc(100vh - 220px);
+  }
+
+  .editor-cm-wrap :deep(.cm-content) {
     font-size: 1.025rem;
     padding: 1.5rem 2rem 2.5rem;
   }
