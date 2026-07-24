@@ -120,6 +120,8 @@ const MAX_UNDO = 200
 let isComposing = false
 /** Tab 操作期间，避免 onInput 重复入栈 */
 let isTabOperation = false
+/** undo/redo 期间，避免 applySnapshot 触发的 onInput 污染撤销栈 */
+let isUndoRedo = false
 
 function applySnapshot(s: Snapshot): void {
   const el = textareaRef.value
@@ -155,14 +157,18 @@ function undo(): void {
   redoStack.push(current)
   // 应用上一个状态
   const prev = undoStack[undoStack.length - 1]
+  isUndoRedo = true
   applySnapshot(prev)
+  isUndoRedo = false
 }
 
 function redo(): void {
   if (redoStack.length === 0) return
   const next = redoStack.pop()!
   undoStack.push(next)
+  isUndoRedo = true
   applySnapshot(next)
+  isUndoRedo = false
 }
 
 /** 直接设置 textarea 内容 + 选区，并同步 draft / 保存 / 高度 */
@@ -291,8 +297,8 @@ function flushSave(): void {
 function onInput(): void {
   const el = textareaRef.value
   if (el) draft.value = el.value
-  // 中文输入法组合期间和 Tab 操作期间不记录撤销点
-  if (!isComposing && !isTabOperation) commit()
+  // 中文输入法组合期间、Tab 操作期间、undo/redo 期间不记录撤销点
+  if (!isComposing && !isTabOperation && !isUndoRedo) commit()
   scheduleSave()
   autoGrow()
 }
@@ -311,7 +317,7 @@ function onCompositionEnd(): void {
  * 键盘处理：
  * - Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z：自定义撤销 / 重做
  * - Tab：插入制表符 \t
- * - Shift+Tab：删除光标前的一个缩进单位（\t 或最多 4 空格）
+ * - Shift+Tab：删除当前行首的一个缩进单位（\t 或最多 4 空格）
  * Shift 检测用 e.shiftKey || shiftPressed 双重判断，shiftPressed 兜底 WebView2 异常。
  */
 function onKeyDown(e: KeyboardEvent): void {
