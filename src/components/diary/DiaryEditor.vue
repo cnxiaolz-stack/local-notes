@@ -1,18 +1,13 @@
 <script setup lang="ts">
-// 日记编辑器：大文本输入区 + 日期显示 + 1000ms debounce 自动保存
-// 关键设计：
+// 日记编辑器：
 // - 不使用 v-model（Vue 在 input 事件后会重置 textarea.value，破坏原生撤销栈）
-// - 自定义撤销/重做栈，完全可控，不依赖 execCommand / WebView2 quirk
-// - Tab 插入制表符 \t（CSS tab-size:4 显示 4 宽），Shift+Tab 删除光标前缩进
-// - 中文输入法 composition 期间不记录撤销点，避免中间态污染栈
+// - Tab/Shift+Tab 使用 execCommand，由浏览器原生撤销栈管理，Ctrl+Z/Y 不拦截
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
 import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
 const props = defineProps<{
-  /** 当前编辑的日期（YYYY-MM-DD） */
   date: string
-  /** 初始内容（加载到的日记正文，无则为空字符串） */
   initialContent: string
 }>()
 
@@ -32,10 +27,7 @@ const dateLabel = computed(() => {
   try {
     const [y, m, d] = props.date.split('-').map(Number)
     return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long'
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
     }).format(new Date(y, (m || 1) - 1, d || 1))
   } catch {
     return props.date
@@ -57,9 +49,7 @@ const fullDateLabel = computed(() => {
   try {
     const [y, m, d] = props.date.split('-').map(Number)
     return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      year: 'numeric', month: 'long', day: 'numeric'
     }).format(new Date(y, (m || 1) - 1, d || 1))
   } catch {
     return props.date
@@ -75,9 +65,7 @@ const isToday = computed(() => {
 })
 
 const placeholder = computed(() =>
-  isToday.value
-    ? '今天发生了什么？记录下来吧…'
-    : '这一天发生了什么？记录下来吧…'
+  isToday.value ? '今天发生了什么？记录下来吧…' : '这一天发生了什么？记录下来吧…'
 )
 
 const createdLabel = computed(() => {
@@ -91,122 +79,20 @@ const updatedLabel = computed(() => {
 
 const saveLabel = computed(() => {
   switch (saveStatus.value) {
-    case 'saving':
-      return '保存中…'
-    case 'saved':
-      return '已保存'
-    default:
-      return ''
+    case 'saving': return '保存中…'
+    case 'saved': return '已保存'
+    default: return ''
   }
 })
-
-/* ============================================================
- * 自定义撤销 / 重做栈
- * 不依赖浏览器原生撤销（v-model 会破坏它），也不依赖 execCommand
- * （WebView2 上不可靠）。完全手动管理，Ctrl+Z / Ctrl+Y 自己拦截。
- * ============================================================ */
-
-interface Snapshot {
-  value: string
-  start: number
-  end: number
-}
-
-const undoStack: Snapshot[] = []
-const redoStack: Snapshot[] = []
-const MAX_UNDO = 200
-
-/** 中文输入法组合中，避免中间态入栈 */
-let isComposing = false
-/** Tab 操作期间，避免 onInput 重复入栈 */
-let isTabOperation = false
-/** undo/redo 期间，避免 applySnapshot 触发的 onInput 污染撤销栈 */
-let isUndoRedo = false
-
-function applySnapshot(s: Snapshot): void {
-  const el = textareaRef.value
-  if (!el) return
-  el.value = s.value
-  el.selectionStart = s.start
-  el.selectionEnd = s.end
-  draft.value = s.value
-  scheduleSave()
-  autoGrow()
-}
-
-/** 把当前状态压入撤销栈（值未变化时跳过） */
-function commit(): void {
-  const el = textareaRef.value
-  if (!el) return
-  const s: Snapshot = {
-    value: el.value,
-    start: el.selectionStart,
-    end: el.selectionEnd
-  }
-  const top = undoStack[undoStack.length - 1]
-  if (top && top.value === s.value) return
-  undoStack.push(s)
-  if (undoStack.length > MAX_UNDO) undoStack.shift()
-  redoStack.length = 0
-}
-
-function undo(): void {
-  if (undoStack.length < 2) return
-  // 当前状态移入 redo
-  const current = undoStack.pop()!
-  redoStack.push(current)
-  // 应用上一个状态
-  const prev = undoStack[undoStack.length - 1]
-  isUndoRedo = true
-  applySnapshot(prev)
-  isUndoRedo = false
-}
-
-function redo(): void {
-  if (redoStack.length === 0) return
-  const next = redoStack.pop()!
-  undoStack.push(next)
-  isUndoRedo = true
-  applySnapshot(next)
-  isUndoRedo = false
-}
-
-/** 直接设置 textarea 内容 + 选区，并同步 draft / 保存 / 高度 */
-function setTextarea(value: string, start: number, end: number): void {
-  const el = textareaRef.value
-  if (!el) return
-  el.value = value
-  el.selectionStart = start
-  el.selectionEnd = end
-  draft.value = value
-  scheduleSave()
-  autoGrow()
-}
-
-/* ============================================================
- * Shift 键全局跟踪（兜底 WebView2 下 e.shiftKey 不可靠的情况）
- * ============================================================ */
-let shiftPressed = false
-function onGlobalKeyDown(e: KeyboardEvent): void {
-  if (e.key === 'Shift') shiftPressed = true
-}
-function onGlobalKeyUp(e: KeyboardEvent): void {
-  if (e.key === 'Shift') shiftPressed = false
-}
 
 onMounted(() => {
-  window.addEventListener('keydown', onGlobalKeyDown)
-  window.addEventListener('keyup', onGlobalKeyUp)
   const el = textareaRef.value
   if (el) {
-    // 不用 v-model，手动设置初始值，避免 Vue 接管 textarea.value
     el.value = props.initialContent
-    undoStack.push({ value: props.initialContent, start: 0, end: 0 })
   }
   autoGrow()
 })
 
-/** 切换日期时重置编辑器内容和撤销栈 */
 watch(
   () => props.initialContent,
   (newContent) => {
@@ -216,16 +102,11 @@ watch(
     el.value = newContent
     draft.value = newContent
     lastSavedContent = newContent
-    undoStack.length = 0
-    redoStack.length = 0
-    undoStack.push({ value: newContent, start: 0, end: 0 })
     autoGrow()
   }
 )
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onGlobalKeyDown)
-  window.removeEventListener('keyup', onGlobalKeyUp)
   flushSave()
   if (savedTimer) {
     clearTimeout(savedTimer)
@@ -297,92 +178,49 @@ function flushSave(): void {
 function onInput(): void {
   const el = textareaRef.value
   if (el) draft.value = el.value
-  // 中文输入法组合期间、Tab 操作期间、undo/redo 期间不记录撤销点
-  if (!isComposing && !isTabOperation && !isUndoRedo) commit()
   scheduleSave()
   autoGrow()
 }
 
-function onCompositionStart(): void {
-  isComposing = true
-}
-
-function onCompositionEnd(): void {
-  isComposing = false
-  // 组合输入完成后记录一次最终状态
-  commit()
-}
-
-/**
- * 键盘处理：
- * - Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z：自定义撤销 / 重做
- * - Tab：插入制表符 \t
- * - Shift+Tab：删除当前行首的一个缩进单位（\t 或最多 4 空格）
- * Shift 检测用 e.shiftKey || shiftPressed 双重判断，shiftPressed 兜底 WebView2 异常。
- */
 function onKeyDown(e: KeyboardEvent): void {
-  // 撤销 / 重做（拦截浏览器原生行为，改用自定义栈）
-  const ctrl = e.ctrlKey || e.metaKey
-  if (ctrl && !e.altKey) {
-    if (e.key === 'z' && !e.shiftKey) {
-      e.preventDefault()
-      undo()
-      return
-    }
-    if (e.key === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey)) {
-      e.preventDefault()
-      redo()
-      return
-    }
-  }
-
   if (e.key !== 'Tab') return
   e.preventDefault()
 
-  // 标记 Tab 操作开始，防止 onInput 重复入栈
-  isTabOperation = true
-
-  const isShift = e.shiftKey || shiftPressed
   const el = textareaRef.value
   if (!el) return
+
+  const isShift = e.shiftKey
   const { selectionStart: start, selectionEnd: end, value } = el
 
-  // 操作前先把当前状态压栈（保证 Tab 操作可被 undo）
-  commit()
-
   if (start === end) {
-    /* ---- 无选区 ---- */
     if (isShift) {
-      // Shift+Tab：删除当前行首的一个缩进单位
+      // Shift+Tab：选中行首缩进并删除（浏览器原生撤销）
       const lineStart = value.lastIndexOf('\n', start - 1) + 1
       const lineContent = value.slice(lineStart, start)
-      
+
       if (lineContent.startsWith('\t')) {
-        // 行首是 \t，删掉它
-        const newValue = value.slice(0, lineStart) + value.slice(lineStart + 1, start) + value.slice(start)
-        setTextarea(newValue, start - 1, start - 1)
+        el.setSelectionRange(lineStart, lineStart + 1)
+        document.execCommand('delete', false)
       } else {
-        // 统计行首连续空格数，删掉 min(连续数, 4) 个
         let remove = 0
         while (remove < 4 && lineContent[remove] === ' ') remove++
         if (remove > 0) {
-          const newValue = value.slice(0, lineStart) + value.slice(lineStart + remove, start) + value.slice(start)
-          setTextarea(newValue, start - remove, start - remove)
+          el.setSelectionRange(lineStart, lineStart + remove)
+          document.execCommand('delete', false)
         }
       }
     } else {
-      // Tab：在光标处插入制表符 \t
-      const newValue = value.slice(0, start) + '\t' + value.slice(end)
-      setTextarea(newValue, start + 1, start + 1)
+      // Tab：插入制表符（浏览器原生撤销）
+      document.execCommand('insertText', false, '\t')
     }
   } else {
-    /* ---- 有选区：按行缩进 ---- */
+    // 有选区：按行缩进
     const lineStart = value.lastIndexOf('\n', start - 1) + 1
     const selected = value.slice(lineStart, end)
+    let result: string
 
     if (isShift) {
-      // 反向缩进：每行行首去掉 \t 或最多 4 空格
-      const dedented = selected
+      result = selected
         .split('\n')
         .map((line) => {
           if (line.startsWith('\t')) return line.slice(1)
@@ -391,24 +229,21 @@ function onKeyDown(e: KeyboardEvent): void {
           return line.slice(remove)
         })
         .join('\n')
-      const newValue = value.slice(0, lineStart) + dedented + value.slice(end)
-      setTextarea(newValue, lineStart, lineStart + dedented.length)
     } else {
-      // 正向缩进：每行行首加 \t
-      const indented = selected
+      result = selected
         .split('\n')
         .map((line) => '\t' + line)
         .join('\n')
-      const newValue = value.slice(0, lineStart) + indented + value.slice(end)
-      setTextarea(newValue, lineStart, lineStart + indented.length)
     }
+
+    el.setSelectionRange(lineStart, end)
+    document.execCommand('insertText', false, result)
   }
 
-  // 操作后把新状态压栈（延迟到下一个事件循环，确保 setTextarea 完成）
-  setTimeout(() => {
-    isTabOperation = false
-    commit()
-  }, 0)
+  // execCommand 后同步 draft 和保存
+  draft.value = el.value
+  scheduleSave()
+  autoGrow()
 }
 </script>
 
@@ -429,11 +264,6 @@ function onKeyDown(e: KeyboardEvent): void {
       创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
     </p>
 
-    <!--
-      不使用 v-model：Vue 的 v-model 会在 input 事件后把 draft 写回
-      textarea.value，这会清空浏览器原生撤销栈。改为手动管理 value，
-      用自定义撤销栈完全控制 Ctrl+Z / Ctrl+Y 行为。
-    -->
     <textarea
       ref="textareaRef"
       class="editor-textarea"
@@ -441,8 +271,6 @@ function onKeyDown(e: KeyboardEvent): void {
       :aria-label="`${dateLabel} 日记`"
       @input="onInput"
       @keydown="onKeyDown"
-      @compositionstart="onCompositionStart"
-      @compositionend="onCompositionEnd"
     ></textarea>
   </div>
 </template>
@@ -527,13 +355,8 @@ function onKeyDown(e: KeyboardEvent): void {
   animation: diary-pulse 1.2s ease-in-out infinite;
 }
 @keyframes diary-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .editor-textarea {
@@ -552,7 +375,6 @@ function onKeyDown(e: KeyboardEvent): void {
   resize: none;
   overflow: hidden;
   font-family: inherit;
-  /* 制表符显示宽度为 4 个字符宽 */
   tab-size: 4;
   -moz-tab-size: 4;
 }
