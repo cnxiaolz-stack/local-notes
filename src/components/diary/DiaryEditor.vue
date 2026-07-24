@@ -2,7 +2,6 @@
 // 日记编辑器：使用 CodeMirror 6
 // Tab/Shift+Tab → indentWithTab（成熟库内置）
 // Ctrl+Z/Y → history + historyKeymap（成熟库内置）
-// 不再自己造撤销轮子
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { EditorView, keymap, placeholder as cmPlaceholder, type ViewUpdate } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
@@ -69,7 +68,7 @@ const isToday = computed(() => {
   return props.date === `${y}-${m}-${d}`
 })
 
-const placeholder = computed(() =>
+const placeholderText = computed(() =>
   isToday.value ? '今天发生了什么？记录下来吧…' : '这一天发生了什么？记录下来吧…'
 )
 
@@ -90,7 +89,7 @@ const saveLabel = computed(() => {
   }
 })
 
-// CodeMirror 主题样式：让编辑器看起来和原来的 textarea 一致
+// CodeMirror 主题样式
 const editorTheme = EditorView.theme({
   '&': {
     fontSize: '1rem',
@@ -102,8 +101,8 @@ const editorTheme = EditorView.theme({
     lineHeight: '1.8',
   },
   '.cm-content': {
-    caretColor: 'var(--color-accent)',
-    color: 'var(--color-text-primary)',
+    caretColor: 'var(--color-accent, #3b82f6)',
+    color: 'var(--color-text-primary, #1e293b)',
     padding: '1.25rem 1.5rem 2rem',
     tabSize: '4',
   },
@@ -114,7 +113,7 @@ const editorTheme = EditorView.theme({
     display: 'none',
   },
   '.cm-placeholder': {
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-secondary, #64748b)',
     opacity: '0.55',
   },
 })
@@ -126,7 +125,7 @@ function createEditor(content: string): EditorView {
       history(),
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
       EditorView.lineWrapping,
-      cmPlaceholder(placeholder.value),
+      cmPlaceholder(placeholderText.value),
       EditorView.contentAttributes.of({ 'aria-label': `${dateLabel.value} 日记` }),
       editorTheme,
       EditorView.updateListener.of((update: ViewUpdate) => {
@@ -146,7 +145,6 @@ onMounted(() => {
   }
 })
 
-// 切换日期时重建编辑器（保证撤销栈干净）
 watch(
   () => props.initialContent,
   (newContent) => {
@@ -244,7 +242,7 @@ function flushSave(): void {
       创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
     </p>
 
-    <div ref="editorRef" class="editor-cm-wrap"></div>
+    <div ref="editorRef" class="editor-cm-host"></div>
   </div>
 </template>
 
@@ -332,31 +330,37 @@ function flushSave(): void {
   50% { opacity: 0.3; }
 }
 
-.editor-cm-wrap {
+/* CodeMirror 容器：必须给确定高度，否则 .cm-editor 高度为 0 */
+.editor-cm-host {
   flex: 1 1 auto;
   min-height: 60vh;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-.editor-cm-wrap :deep(.cm-editor) {
+.editor-cm-host :deep(.cm-editor) {
   height: 100%;
   min-height: 60vh;
+  display: flex;
+  flex-direction: column;
 }
 
-.editor-cm-wrap :deep(.cm-scroller) {
+.editor-cm-host :deep(.cm-scroller) {
+  flex: 1 1 auto;
   overflow: auto;
 }
 
 @media (min-width: 768px) {
-  .editor-cm-wrap {
+  .editor-cm-host {
+    min-height: calc(100vh - 220px);
+  font-size: 1.025rem;
+  }
+
+  .editor-cm-host :deep(.cm-editor) {
     min-height: calc(100vh - 220px);
   }
 
-  .editor-cm-wrap :deep(.cm-editor) {
-    min-height: calc(100vh - 220px);
-  }
-
-  .editor-cm-wrap :deep(.cm-content) {
+  .editor-cm-host :deep(.cm-content) {
     font-size: 1.025rem;
     padding: 1.5rem 2rem 2.5rem;
   }
