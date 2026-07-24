@@ -118,6 +118,8 @@ const MAX_UNDO = 200
 
 /** 中文输入法组合中，避免中间态入栈 */
 let isComposing = false
+/** Tab 操作期间，避免 onInput 重复入栈 */
+let isTabOperation = false
 
 function applySnapshot(s: Snapshot): void {
   const el = textareaRef.value
@@ -289,8 +291,8 @@ function flushSave(): void {
 function onInput(): void {
   const el = textareaRef.value
   if (el) draft.value = el.value
-  // 中文输入法组合期间不记录撤销点（中间态无意义）
-  if (!isComposing) commit()
+  // 中文输入法组合期间和 Tab 操作期间不记录撤销点
+  if (!isComposing && !isTabOperation) commit()
   scheduleSave()
   autoGrow()
 }
@@ -331,6 +333,9 @@ function onKeyDown(e: KeyboardEvent): void {
   if (e.key !== 'Tab') return
   e.preventDefault()
 
+  // 标记 Tab 操作开始，防止 onInput 重复入栈
+  isTabOperation = true
+
   const isShift = e.shiftKey || shiftPressed
   const el = textareaRef.value
   if (!el) return
@@ -342,18 +347,20 @@ function onKeyDown(e: KeyboardEvent): void {
   if (start === end) {
     /* ---- 无选区 ---- */
     if (isShift) {
-      // Shift+Tab：删除光标前的一个缩进单位
-      const before = value.slice(0, start)
-      if (before.endsWith('\t')) {
-        // 光标前是 \t，删掉它
-        const newValue = value.slice(0, start - 1) + value.slice(start)
+      // Shift+Tab：删除当前行首的一个缩进单位
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1
+      const lineContent = value.slice(lineStart, start)
+      
+      if (lineContent.startsWith('\t')) {
+        // 行首是 \t，删掉它
+        const newValue = value.slice(0, lineStart) + value.slice(lineStart + 1, start) + value.slice(start)
         setTextarea(newValue, start - 1, start - 1)
       } else {
-        // 统计光标前连续空格数，删掉 min(连续数, 4) 个
+        // 统计行首连续空格数，删掉 min(连续数, 4) 个
         let remove = 0
-        while (remove < 4 && before[start - 1 - remove] === ' ') remove++
+        while (remove < 4 && lineContent[remove] === ' ') remove++
         if (remove > 0) {
-          const newValue = value.slice(0, start - remove) + value.slice(start)
+          const newValue = value.slice(0, lineStart) + value.slice(lineStart + remove, start) + value.slice(start)
           setTextarea(newValue, start - remove, start - remove)
         }
       }
@@ -391,8 +398,11 @@ function onKeyDown(e: KeyboardEvent): void {
     }
   }
 
-  // 操作后把新状态压栈
-  commit()
+  // 操作后把新状态压栈（延迟到下一个事件循环，确保 setTextarea 完成）
+  setTimeout(() => {
+    isTabOperation = false
+    commit()
+  }, 0)
 }
 </script>
 
