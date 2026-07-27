@@ -17,6 +17,16 @@ export const useAppStore = defineStore('app', () => {
   /** 是否展开「全部列表」（今日/便签/日记三页共用，header 按钮控制；切页自动收起） */
   const showAllList = ref<boolean>(false)
 
+  /** 侧边栏是否收起为图标列（localStorage 持久化） */
+  const sidebarCollapsed = ref<boolean>(
+    localStorage.getItem('qingji_sidebar_collapsed') === 'true'
+  )
+
+  /** 窗口是否置顶（localStorage 持久化，实际的 setAlwaysOnTop 在 App.vue 中调用） */
+  const alwaysOnTop = ref<boolean>(
+    localStorage.getItem('qingji_always_on_top') === 'true'
+  )
+
   /** 切换全局选中日期 */
   function setSelectedDate(date: string): void {
     selectedDate.value = date
@@ -37,13 +47,29 @@ export const useAppStore = defineStore('app', () => {
     showAllList.value = !showAllList.value
   }
 
+  /** 切换侧边栏收起/展开，并持久化 */
+  function toggleSidebar(): void {
+    sidebarCollapsed.value = !sidebarCollapsed.value
+    localStorage.setItem('qingji_sidebar_collapsed', String(sidebarCollapsed.value))
+  }
+
+  /** 切换窗口置顶，并持久化 */
+  function toggleAlwaysOnTop(): void {
+    alwaysOnTop.value = !alwaysOnTop.value
+    localStorage.setItem('qingji_always_on_top', String(alwaysOnTop.value))
+  }
+
   return {
     selectedDate,
     currentMarkedDates,
     showAllList,
+    sidebarCollapsed,
+    alwaysOnTop,
     setSelectedDate,
     setMarkedDates,
     setAllList,
-    toggleAllList
+    toggleAllList,
+    toggleSidebar,
+    toggleAlwaysOnTop
   }
 })
