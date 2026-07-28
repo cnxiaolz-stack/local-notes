@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import SideNav from '@/components/SideNav.vue'
 import BottomTabBar from '@/components/BottomTabBar.vue'
-import AppIcon from '@/components/AppIcon.vue'
+import TitleBar from '@/components/TitleBar.vue'
 import DatePickerButton from '@/components/common/DatePickerButton.vue'
 import { navItems } from '@/components/navItems'
 import { useAppStore } from '@/stores/app'
@@ -12,13 +12,8 @@ import { isTauriEnv } from '@/utils/env'
 const route = useRoute()
 const app = useAppStore()
 
-/**
- * 是否在 Tauri 桌面端环境。
- * 统一使用 isTauriEnv()（检测 __TAURI_INTERNALS__，与 storage/backup 一致）。
- * Tauri 在页面脚本执行前已完成注入，模块加载时即可得到准确结果，
- * 按钮在首次渲染就能显示。浏览器（pnpm dev）下返回 false，按钮不显示。
- */
-const isDesktop = ref(isTauriEnv())
+/** 是否在 Tauri 桌面端环境（桌面端显示自定义标题栏，浏览器不显示） */
+const isDesktop = isTauriEnv()
 
 const pageTitle = computed(() => {
   const meta = route.meta?.title
@@ -44,89 +39,61 @@ watch(
     app.setAllList(false)
   }
 )
-
-/** 切换窗口置顶 */
-async function togglePin(): Promise<void> {
-  app.toggleAlwaysOnTop()
-  try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window')
-    await getCurrentWindow().setAlwaysOnTop(app.alwaysOnTop)
-  } catch (err) {
-    console.error('[qingji] 设置置顶失败：', err)
-  }
-}
-
-// 启动时恢复置顶状态（仅桌面端）
-onMounted(async () => {
-  if (isDesktop.value && app.alwaysOnTop) {
-    try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window')
-      await getCurrentWindow().setAlwaysOnTop(true)
-    } catch (err) {
-      console.error('[qingji] 恢复置顶失败：', err)
-    }
-  }
-})
 </script>
 
 <template>
-  <div class="flex h-full">
-    <SideNav />
+  <div class="flex h-full flex-col">
+    <!-- 自定义标题栏（仅桌面端）：置顶/最小化/最大化/关闭 -->
+    <TitleBar v-if="isDesktop" />
 
-    <div class="flex min-w-0 flex-1 flex-col">
-      <header class="app-header">
-        <h1 class="text-xl font-semibold" style="color: var(--color-text-primary)">
-          {{ pageTitle }}
-        </h1>
-        <div class="header-actions">
-          <button
-            v-if="isDesktop"
-            type="button"
-            class="pin-btn"
-            :class="{ active: app.alwaysOnTop }"
-            :title="app.alwaysOnTop ? '取消置顶' : '窗口置顶'"
-            @click="togglePin"
-          >
-            <AppIcon name="pin" :size="18" />
-          </button>
-          <DatePickerButton v-if="showDatePicker" />
-          <button
-            v-if="showAllListBtn"
-            type="button"
-            class="all-list-btn"
-            :class="{ 'is-active': app.showAllList }"
-            :aria-pressed="app.showAllList"
-            @click="app.toggleAllList()"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.75"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+    <div class="flex min-h-0 flex-1">
+      <SideNav />
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header class="app-header">
+          <h1 class="text-xl font-semibold" style="color: var(--color-text-primary)">
+            {{ pageTitle }}
+          </h1>
+          <div class="header-actions">
+            <DatePickerButton v-if="showDatePicker" />
+            <button
+              v-if="showAllListBtn"
+              type="button"
+              class="all-list-btn"
+              :class="{ 'is-active': app.showAllList }"
+              :aria-pressed="app.showAllList"
+              @click="app.toggleAllList()"
             >
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-            <span>全部</span>
-          </button>
-        </div>
-      </header>
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+              <span>全部</span>
+            </button>
+          </div>
+        </header>
 
-      <main class="app-main">
-        <RouterView />
-      </main>
+        <main class="app-main">
+          <RouterView />
+        </main>
+      </div>
+
+      <BottomTabBar />
     </div>
-
-    <BottomTabBar />
   </div>
 </template>
 
@@ -155,29 +122,6 @@ onMounted(async () => {
   color: var(--color-text-primary);
 }
 .all-list-btn.is-active {
-  border-color: var(--color-brand);
-  color: var(--color-brand);
-  background-color: var(--color-brand-soft);
-}
-
-.pin-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.625rem;
-  border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: border-color 200ms ease, color 200ms ease, background-color 200ms ease;
-}
-.pin-btn:hover {
-  border-color: var(--color-brand);
-  color: var(--color-text-primary);
-}
-.pin-btn.active {
   border-color: var(--color-brand);
   color: var(--color-brand);
   background-color: var(--color-brand-soft);
