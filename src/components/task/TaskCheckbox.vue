@@ -1,12 +1,14 @@
 <script setup lang="ts">
 // 圆形自定义复选框：未完成空心，已完成实心 + 对勾。
 // 颜色由调用方传入（任务随机色），未传时回退到品牌蓝。
+// 渲染层用 normalizeTaskColor 兜底，确保不显示遗留色。
 import { computed } from 'vue'
+import { normalizeTaskColor } from '@/types'
 
 const props = defineProps<{ checked: boolean; disabled?: boolean; color?: string }>()
 defineEmits<{ toggle: [] }>()
 
-const effectiveColor = computed(() => props.color || 'var(--color-brand)')
+const effectiveColor = computed(() => normalizeTaskColor(props.color))
 </script>
 
 <template>

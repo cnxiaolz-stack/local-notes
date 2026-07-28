@@ -1,24 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import { isTauri } from '@tauri-apps/api/core'
 import SideNav from '@/components/SideNav.vue'
 import BottomTabBar from '@/components/BottomTabBar.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import DatePickerButton from '@/components/common/DatePickerButton.vue'
 import { navItems } from '@/components/navItems'
 import { useAppStore } from '@/stores/app'
+import { isTauriEnv } from '@/utils/env'
 
 const route = useRoute()
 const app = useAppStore()
 
 /**
  * 是否在 Tauri 桌面端环境。
- * 使用官方 isTauri() 同步检测：Tauri 在页面脚本执行前已完成注入，
- * 因此模块加载时即可得到准确结果，按钮在首次渲染就能显示（无需等待 onMounted）。
- * 浏览器（pnpm dev）下返回 false，按钮不显示——置顶本就是桌面端独有能力。
+ * 统一使用 isTauriEnv()（检测 __TAURI_INTERNALS__，与 storage/backup 一致）。
+ * Tauri 在页面脚本执行前已完成注入，模块加载时即可得到准确结果，
+ * 按钮在首次渲染就能显示。浏览器（pnpm dev）下返回 false，按钮不显示。
  */
-const isDesktop = ref(isTauri())
+const isDesktop = ref(isTauriEnv())
 
 const pageTitle = computed(() => {
   const meta = route.meta?.title

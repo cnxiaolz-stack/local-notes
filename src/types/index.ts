@@ -95,3 +95,18 @@ export const LEGACY_COLOR_MAP: Record<string, string> = {
 export function randomTaskColor(): string {
   return TASK_COLORS[Math.floor(Math.random() * TASK_COLORS.length)]
 }
+
+/**
+ * 任务颜色归一化（渲染层兜底）：
+ * - 无颜色 → 回退品牌蓝
+ * - 旧色板遗留色 → 按 LEGACY_COLOR_MAP 映射到当前色板
+ * - 非法/未知色 → 回退品牌蓝
+ * - 当前色板内的色 → 原样返回
+ *
+ * 即便数据层迁移有遗漏，显示层也 guaranteed 不会出现红/紫/天蓝等遗留色。
+ */
+export function normalizeTaskColor(color?: string | null): string {
+  if (!color) return 'var(--color-brand)'
+  if (LEGACY_COLOR_MAP[color]) return LEGACY_COLOR_MAP[color]
+  return TASK_COLORS.includes(color) ? color : 'var(--color-brand)'
+}

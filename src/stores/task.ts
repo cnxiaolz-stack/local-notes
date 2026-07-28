@@ -1,8 +1,9 @@
 // 任务 store（Pinia setup 风格）
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { LEGACY_COLOR_MAP, TASK_COLORS, type Task } from '@/types'
+import { TASK_COLORS, type Task } from '@/types'
 import { getStorage } from '@/utils/storage'
+import { migrateLegacyTaskColors } from '@/utils/migrate'
 
 /** 返回今天的日期字符串 YYYY-MM-DD */
 function todayStr(): string {
@@ -57,33 +58,11 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   /**
-   * 一次性迁移：把历史任务中已被移除的旧颜色（红/玫红/紫/琥珀/天蓝）
-   * 按 LEGACY_COLOR_MAP 映射到当前 5 色板，确保界面不再出现用户不喜欢的颜色。
-   * 仅迁移仍在旧映射表中的颜色；已属当前色板的颜色不动。
-   * 用 localStorage 标记避免重复迁移。
+   * 迁移历史任务的旧颜色到当前色板（转调 utils/migrate.ts）。
+   * 实际迁移逻辑在全局初始化（main.ts）中执行，此处保留方法供视图兼容调用。
    */
   async function migrateLegacyColors(): Promise<void> {
-    if (localStorage.getItem('qingji_color_migrated_v2') === 'true') return
-    try {
-      const storage = getStorage()
-      let offset = 0
-      const limit = 100
-      // 分页扫描所有任务，收集需要迁移的项
-      while (true) {
-        const batch = await storage.getTasksPage(limit, offset)
-        if (batch.length === 0) break
-        for (const t of batch) {
-          if (t.color && LEGACY_COLOR_MAP[t.color]) {
-            await storage.updateTask(t.id, { color: LEGACY_COLOR_MAP[t.color] })
-          }
-        }
-        offset += batch.length
-        if (batch.length < limit) break
-      }
-      localStorage.setItem('qingji_color_migrated_v2', 'true')
-    } catch (err) {
-      console.error('[qingji] 颜色迁移失败：', err)
-    }
+    await migrateLegacyTaskColors()
   }
 
   /** 加载分页任务列表；reset=true 时重置从头加载（供「全部任务」列表） */

@@ -4,52 +4,61 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 import pkg from './package.json'
 
+// 是否为 Tauri 桌面端构建（Tauri 会设置 TAURI_ENV_* 环境变量）。
+// 桌面端不需要 PWA Service Worker——SW 会缓存前端导致升级用户加载旧代码，
+// 故 Tauri 构建时剥离 VitePWA，仅浏览器/PWA 构建启用。
+const isTauriBuild = !!process.env.TAURI_ENV_PLATFORM
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-      manifest: {
-        name: '轻记',
-        short_name: '轻记',
-        description: '本地轻量便签/任务/日记应用',
-        theme_color: '#3b82f6',
-        background_color: '#fafaf9',
-        display: 'standalone',
-        orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
-        lang: 'zh-CN',
-        icons: [
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true
-      },
-      devOptions: {
-        enabled: false
-      }
-    })
+    ...(isTauriBuild
+      ? []
+      : [
+          VitePWA({
+            registerType: 'autoUpdate',
+            includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+            manifest: {
+              name: '轻记',
+              short_name: '轻记',
+              description: '本地轻量便签/任务/日记应用',
+              theme_color: '#3b82f6',
+              background_color: '#fafaf9',
+              display: 'standalone',
+              orientation: 'portrait',
+              start_url: '/',
+              scope: '/',
+              lang: 'zh-CN',
+              icons: [
+                {
+                  src: 'pwa-192x192.png',
+                  sizes: '192x192',
+                  type: 'image/png'
+                },
+                {
+                  src: 'pwa-512x512.png',
+                  sizes: '512x512',
+                  type: 'image/png'
+                },
+                {
+                  src: 'pwa-512x512.png',
+                  sizes: '512x512',
+                  type: 'image/png',
+                  purpose: 'maskable'
+                }
+              ]
+            },
+            workbox: {
+              globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+              cleanupOutdatedCaches: true,
+              clientsClaim: true
+            },
+            devOptions: {
+              enabled: false
+            }
+          })
+        ])
   ],
   resolve: {
     alias: {

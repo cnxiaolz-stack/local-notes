@@ -2,9 +2,11 @@
 //
 // 桌面端（Tauri）使用 plugin-dialog + plugin-fs；
 // PWA 端（浏览器）使用 Blob 下载与隐藏 <input type="file"> 上传。
-// 通过 isTauri() 在运行时分流，动态 import 避免把 Tauri 插件打进 PWA 包。
+// 通过 isTauriEnv() 在运行时分流，动态 import 避免把 Tauri 插件打进 PWA 包。
 import type { BackupData, Diary, Note, Task } from '@/types'
 import { getStorage } from '@/utils/storage'
+import { isTauriEnv } from '@/utils/env'
+import { forceMigrateLegacyTaskColors } from '@/utils/migrate'
 
 // ============================================================
 // SubTask 7.4：辅助函数
@@ -12,10 +14,10 @@ import { getStorage } from '@/utils/storage'
 
 /**
  * 判断当前是否运行在 Tauri 桌面端环境。
- * 与 storage.ts 中的检测方式保持一致。
+ * 转调统一的 isTauriEnv()（保留导出名以兼容现有引用）。
  */
 export function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+  return isTauriEnv()
 }
 
 /**
@@ -389,6 +391,8 @@ export async function importJSON(): Promise<ImportResult> {
 
   try {
     await getStorage().replaceAllData(data)
+    // 导入数据可能含旧色板的遗留色，强制重跑迁移将其转为当前色板
+    await forceMigrateLegacyTaskColors()
   } catch (err) {
     return {
       success: false,

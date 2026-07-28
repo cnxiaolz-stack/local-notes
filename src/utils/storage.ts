@@ -2,6 +2,7 @@
 import type { BackupData, Diary, Note, Task } from '@/types'
 import { SQLiteStorage } from '@/utils/sqliteStorage'
 import { IndexedDbStorage } from '@/utils/indexedDbStorage'
+import { isTauriEnv } from '@/utils/env'
 
 /**
  * 统一存储适配器接口：每个实体提供 CRUD，外加备份/恢复与初始化。
@@ -48,20 +49,13 @@ export interface StorageAdapter {
 let storageInstance: StorageAdapter | null = null
 
 /**
- * 判断当前是否运行在 Tauri 桌面端环境。
- */
-function isTauriEnvironment(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-}
-
-/**
  * 获取存储适配器单例。
  * - Tauri 环境 -> SQLiteStorage
  * - 其它（浏览器/PWA）-> IndexedDbStorage
  */
 export function getStorage(): StorageAdapter {
   if (storageInstance) return storageInstance
-  storageInstance = isTauriEnvironment()
+  storageInstance = isTauriEnv()
     ? new SQLiteStorage()
     : new IndexedDbStorage()
   return storageInstance

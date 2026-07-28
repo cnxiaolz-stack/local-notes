@@ -7,7 +7,7 @@ import { useTaskStore } from '@/stores/task'
 import { useAppStore } from '@/stores/app'
 import TaskItem from '@/components/task/TaskItem.vue'
 import TaskInput from '@/components/task/TaskInput.vue'
-import type { Task } from '@/types'
+import { normalizeTaskColor, type Task } from '@/types'
 
 const taskStore = useTaskStore()
 const app = useAppStore()
@@ -100,8 +100,6 @@ watch(
 )
 
 onMounted(async () => {
-  // 先迁移历史任务的旧颜色（红/玫红/紫/琥珀/天蓝 → 当前 5 色板），再加载
-  await taskStore.migrateLegacyColors()
   await taskStore.loadTaskDates()
   app.setMarkedDates(taskStore.taskDates)
   await taskStore.loadTasks(app.selectedDate)
@@ -177,7 +175,7 @@ onBeforeUnmount(() => {
           <span class="history-date">{{ historyDateLabel(task.date) }}</span>
           <span
             class="history-dot"
-            :style="{ backgroundColor: task.color ?? 'var(--color-border)' }"
+            :style="{ backgroundColor: normalizeTaskColor(task.color) }"
             aria-hidden="true"
           ></span>
           <span class="history-content">{{ task.content }}</span>
