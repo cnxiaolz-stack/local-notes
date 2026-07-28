@@ -100,6 +100,8 @@ watch(
 )
 
 onMounted(async () => {
+  // 先迁移历史任务的旧颜色（红/玫红/紫/琥珀/天蓝 → 当前 5 色板），再加载
+  await taskStore.migrateLegacyColors()
   await taskStore.loadTaskDates()
   app.setMarkedDates(taskStore.taskDates)
   await taskStore.loadTasks(app.selectedDate)

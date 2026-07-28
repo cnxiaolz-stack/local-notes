@@ -1,7 +1,7 @@
 // 任务 store（Pinia setup 风格）
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { TASK_COLORS, type Task } from '@/types'
+import { LEGACY_COLOR_MAP, TASK_COLORS, type Task } from '@/types'
 import { getStorage } from '@/utils/storage'
 
 /** 返回今天的日期字符串 YYYY-MM-DD */
@@ -17,7 +17,7 @@ function todayStr(): string {
 function pickColor(exclude: (string | undefined)[] = []): string {
   const excludeSet = new Set(exclude.filter((c): c is string => Boolean(c)))
   const pool = TASK_COLORS.filter((c) => !excludeSet.has(c))
-  // 理论上 6 色排除最多 2 色后仍有 4 色可选；防御性兜底
+  // 5 色排除最多 2 色后仍有 3 色可选；防御性兜底
   const finalPool = pool.length > 0 ? pool : TASK_COLORS
   return finalPool[Math.floor(Math.random() * finalPool.length)]
 }
@@ -54,6 +54,36 @@ export const useTaskStore = defineStore('task', () => {
   /** 加载所有有任务的日期（用于日历标记） */
   async function loadTaskDates(): Promise<void> {
     taskDates.value = await getStorage().getTaskDates()
+  }
+
+  /**
+   * 一次性迁移：把历史任务中已被移除的旧颜色（红/玫红/紫/琥珀/天蓝）
+   * 按 LEGACY_COLOR_MAP 映射到当前 5 色板，确保界面不再出现用户不喜欢的颜色。
+   * 仅迁移仍在旧映射表中的颜色；已属当前色板的颜色不动。
+   * 用 localStorage 标记避免重复迁移。
+   */
+  async function migrateLegacyColors(): Promise<void> {
+    if (localStorage.getItem('qingji_color_migrated_v2') === 'true') return
+    try {
+      const storage = getStorage()
+      let offset = 0
+      const limit = 100
+      // 分页扫描所有任务，收集需要迁移的项
+      while (true) {
+        const batch = await storage.getTasksPage(limit, offset)
+        if (batch.length === 0) break
+        for (const t of batch) {
+          if (t.color && LEGACY_COLOR_MAP[t.color]) {
+            await storage.updateTask(t.id, { color: LEGACY_COLOR_MAP[t.color] })
+          }
+        }
+        offset += batch.length
+        if (batch.length < limit) break
+      }
+      localStorage.setItem('qingji_color_migrated_v2', 'true')
+    } catch (err) {
+      console.error('[qingji] 颜色迁移失败：', err)
+    }
   }
 
   /** 加载分页任务列表；reset=true 时重置从头加载（供「全部任务」列表） */
@@ -135,6 +165,7 @@ export const useTaskStore = defineStore('task', () => {
     loadTasks,
     loadTaskDates,
     loadTasksPage,
+    migrateLegacyColors,
     addTask,
     toggleTask,
     updateTask,

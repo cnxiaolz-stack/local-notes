@@ -69,12 +69,27 @@ export interface BackupData {
 /** 任务圆圈预设色板 */
 export const TASK_COLORS = [
   '#3b82f6', // 蓝
-  '#0ea5e9', // 天蓝
   '#10b981', // 绿
   '#9ca3af', // 灰
   '#fcd34d', // 黄
   '#06b6d4'  // 青
 ]
+
+/**
+ * 旧色板颜色 → 新色板的映射。
+ * 用于把历史上用旧色板创建的任务（红/玫红/紫/琥珀/天蓝）迁移到当前 5 色板，
+ * 确保界面不再出现用户不喜欢的颜色。映射目标尽量贴近原色相：
+ *   琥珀(#f59e0b) → 黄(#fcd34d)
+ *   玫红(#ec4899) → 红 → 蓝（色板无红，映射到主色蓝）
+ *   紫  (#8b5cf6) → 蓝(#3b82f6)
+ *   天蓝(#0ea5e9) → 蓝(#3b82f6)（青系合并到蓝）
+ */
+export const LEGACY_COLOR_MAP: Record<string, string> = {
+  '#f59e0b': '#fcd34d', // 琥珀 → 黄
+  '#ec4899': '#3b82f6', // 玫红 → 蓝
+  '#8b5cf6': '#3b82f6', // 紫 → 蓝
+  '#0ea5e9': '#3b82f6'  // 天蓝 → 蓝
+}
 
 /** 随机取一个任务颜色 */
 export function randomTaskColor(): string {
