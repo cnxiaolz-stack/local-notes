@@ -1,13 +1,48 @@
 <script setup lang="ts">
 // 日记编辑器：使用 CodeMirror 6
-// Tab/Shift+Tab → indentWithTab（成熟库内置）
+// Tab → 插入 4 个空格（整行选中时整行缩进）；Shift+Tab → 回退 4 空格
 // Ctrl+Z/Y → history + historyKeymap（成熟库内置）
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { EditorView, keymap, placeholder as cmPlaceholder, type ViewUpdate } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { EditorState, Prec } from '@codemirror/state'
+import { indentMore, indentLess } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { useDiaryStore } from '@/stores/diary'
 import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
+
+/** 缩进宽度（空格数） */
+const INDENT_SPACES = '    ' // 4 个空格
+
+/**
+ * 自定义 Tab 键：整行选中时整行缩进，否则插入 4 空格。
+ * 用高优先级 Prec.highest 覆盖 defaultKeymap 里的默认 Tab 行为。
+ */
+const tabKeymap = Prec.highest(
+  keymap.of([
+    {
+      key: 'Tab',
+      preventDefault: true,
+      run: (view): boolean => {
+        const { state, dispatch } = view
+        // 有选区 → 整行缩进
+        if (state.selection.ranges.some((r) => !r.empty)) {
+          return indentMore(view)
+        }
+        // 无选区 → 插入 4 空格
+        dispatch(state.replaceSelection(INDENT_SPACES))
+        return true
+      }
+    },
+    {
+      key: 'Shift-Tab',
+      preventDefault: true,
+      run: (view): boolean => {
+        // 有选区 → 整行回退缩进；无选区 → 也尝试回退（删除行首空格）
+        return indentLess(view)
+      }
+    }
+  ])
+)
 
 const props = defineProps<{
   date: string
@@ -123,7 +158,9 @@ function createEditor(content: string): EditorView {
     doc: content,
     extensions: [
       history(),
-      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      keymap.of([...defaultKeymap, ...historyKeymap]),
+      // 自定义 Tab/Shift+Tab（最高优先级，覆盖 defaultKeymap 默认 Tab）
+      tabKeymap,
       EditorView.lineWrapping,
       cmPlaceholder(placeholderText.value),
       EditorView.contentAttributes.of({ 'aria-label': `${dateLabel.value} 日记` }),
@@ -353,7 +390,7 @@ function flushSave(): void {
 @media (min-width: 768px) {
   .editor-cm-host {
     min-height: calc(100vh - 220px);
-  font-size: 1.025rem;
+    font-size: 1.025rem;
   }
 
   .editor-cm-host :deep(.cm-editor) {
