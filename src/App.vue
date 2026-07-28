@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import { isTauri } from '@tauri-apps/api/core'
 import SideNav from '@/components/SideNav.vue'
 import BottomTabBar from '@/components/BottomTabBar.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -11,8 +12,13 @@ import { useAppStore } from '@/stores/app'
 const route = useRoute()
 const app = useAppStore()
 
-/** 是否在 Tauri 桌面端环境（延迟到 onMounted 检测，确保 Tauri 注入完成） */
-const isDesktop = ref(false)
+/**
+ * 是否在 Tauri 桌面端环境。
+ * 使用官方 isTauri() 同步检测：Tauri 在页面脚本执行前已完成注入，
+ * 因此模块加载时即可得到准确结果，按钮在首次渲染就能显示（无需等待 onMounted）。
+ * 浏览器（pnpm dev）下返回 false，按钮不显示——置顶本就是桌面端独有能力。
+ */
+const isDesktop = ref(isTauri())
 
 const pageTitle = computed(() => {
   const meta = route.meta?.title
@@ -50,12 +56,8 @@ async function togglePin(): Promise<void> {
   }
 }
 
-// 启动时检测 Tauri 环境并恢复置顶状态
+// 启动时恢复置顶状态（仅桌面端）
 onMounted(async () => {
-  // 同时检查两种 Tauri 标识，兼容不同版本
-  isDesktop.value = typeof window !== 'undefined' &&
-    ('isTauri' in window || '__TAURI_INTERNALS__' in window)
-
   if (isDesktop.value && app.alwaysOnTop) {
     try {
       const { getCurrentWindow } = await import('@tauri-apps/api/window')

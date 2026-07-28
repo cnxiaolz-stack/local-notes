@@ -69,10 +69,10 @@ export interface BackupData {
 /** 任务圆圈预设色板 */
 export const TASK_COLORS = [
   '#3b82f6', // 蓝
-  '#10b981', // 翠绿
-  '#f59e0b', // 琥珀
-  '#ec4899', // 玫红
-  '#8b5cf6', // 紫
+  '#0ea5e9', // 天蓝
+  '#10b981', // 绿
+  '#9ca3af', // 灰
+  '#fcd34d', // 黄
   '#06b6d4'  // 青
 ]
 

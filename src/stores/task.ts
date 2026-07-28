@@ -13,10 +13,13 @@ function todayStr(): string {
   return `${y}-${m}-${day}`
 }
 
-/** 从预设色板随机取一个颜色，可排除某个颜色（用于相邻不同色） */
-function pickColor(exclude?: string): string {
-  const pool = TASK_COLORS.filter((c) => c !== exclude)
-  return pool[Math.floor(Math.random() * pool.length)]
+/** 从预设色板随机取一个颜色，排除指定的颜色（用于与前两个任务不同色） */
+function pickColor(exclude: (string | undefined)[] = []): string {
+  const excludeSet = new Set(exclude.filter((c): c is string => Boolean(c)))
+  const pool = TASK_COLORS.filter((c) => !excludeSet.has(c))
+  // 理论上 6 色排除最多 2 色后仍有 4 色可选；防御性兜底
+  const finalPool = pool.length > 0 ? pool : TASK_COLORS
+  return finalPool[Math.floor(Math.random() * finalPool.length)]
 }
 
 export const useTaskStore = defineStore('task', () => {
@@ -75,15 +78,19 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
-  /** 新增任务（追加到末尾，颜色与上一个任务不同） */
+  /** 新增任务（追加到末尾，颜色与前两个任务不同） */
   async function addTask(content: string): Promise<Task> {
-    const lastColor = tasks.value[tasks.value.length - 1]?.color
+    const tasksArr = tasks.value
+    const lastColors = [
+      tasksArr[tasksArr.length - 1]?.color,
+      tasksArr[tasksArr.length - 2]?.color
+    ]
     const created = await getStorage().createTask({
       date: currentDate.value,
       content,
       completed: false,
-      order: tasks.value.length,
-      color: pickColor(lastColor)
+      order: tasksArr.length,
+      color: pickColor(lastColors)
     })
     tasks.value.push(created)
     // 若该日期尚未标记，加入标记集合
