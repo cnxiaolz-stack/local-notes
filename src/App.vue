@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import SideNav from '@/components/SideNav.vue'
 import BottomTabBar from '@/components/BottomTabBar.vue'
@@ -7,14 +7,12 @@ import AppIcon from '@/components/AppIcon.vue'
 import DatePickerButton from '@/components/common/DatePickerButton.vue'
 import { navItems } from '@/components/navItems'
 import { useAppStore } from '@/stores/app'
-import { isTauri } from '@/utils/backup'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const route = useRoute()
 const app = useAppStore()
 
-/** 是否在 Tauri 桌面端环境（PWA 端隐藏置顶按钮） */
-const isDesktop = isTauri()
+/** 是否在 Tauri 桌面端环境（延迟到 onMounted 检测，确保 Tauri 注入完成） */
+const isDesktop = ref(false)
 
 const pageTitle = computed(() => {
   const meta = route.meta?.title
@@ -45,16 +43,22 @@ watch(
 async function togglePin(): Promise<void> {
   app.toggleAlwaysOnTop()
   try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window')
     await getCurrentWindow().setAlwaysOnTop(app.alwaysOnTop)
   } catch (err) {
     console.error('[qingji] 设置置顶失败：', err)
   }
 }
 
-// 启动时恢复置顶状态
+// 启动时检测 Tauri 环境并恢复置顶状态
 onMounted(async () => {
-  if (isDesktop && app.alwaysOnTop) {
+  // 同时检查两种 Tauri 标识，兼容不同版本
+  isDesktop.value = typeof window !== 'undefined' &&
+    ('isTauri' in window || '__TAURI_INTERNALS__' in window)
+
+  if (isDesktop.value && app.alwaysOnTop) {
     try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window')
       await getCurrentWindow().setAlwaysOnTop(true)
     } catch (err) {
       console.error('[qingji] 恢复置顶失败：', err)

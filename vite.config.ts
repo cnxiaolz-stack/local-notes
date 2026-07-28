@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
+import pkg from './package.json'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -63,6 +64,9 @@ export default defineConfig({
     host: '127.0.0.1'
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version)
+  },
   build: {
     // Tauri uses Chromium on Windows and WebKit on macOS/Linux.
     target:

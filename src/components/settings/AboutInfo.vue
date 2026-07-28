@@ -1,7 +1,7 @@
 <script setup lang="ts">
-const appVersion = 'v0.1.0'
+const appVersion = `v${__APP_VERSION__}`
 // 部署到自己的 GitHub 仓库后，将下面的地址替换为你的仓库 URL（如 'https://github.com/用户名/qingji'）即可显示链接；留空则不显示。
-const repoUrl = ''
+const repoUrl = 'https://github.com/cnxiaolz-stack/local-notes'
 </script>
 
 <template>
