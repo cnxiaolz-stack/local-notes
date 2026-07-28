@@ -7,7 +7,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import DatePickerButton from '@/components/common/DatePickerButton.vue'
 import { navItems } from '@/components/navItems'
 import { useAppStore } from '@/stores/app'
-import { isTauri } from '@tauri-apps/api/core'
+import { isTauri } from '@/utils/backup'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const route = useRoute()
