@@ -12,7 +12,17 @@
     "sql:allow-select",
     "sql:allow-close",
     "dialog:default",
+    "dialog:allow-save",
+    "dialog:allow-open",
     "fs:default",
+    "fs:allow-write-text-file",
+    "fs:allow-read-text-file",
+    "fs:allow-write-file",
+    "fs:allow-read-file",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "**" }]
+    },
     "core:window:allow-set-always-on-top",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
