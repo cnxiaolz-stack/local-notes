@@ -1,22 +1,24 @@
 <script setup lang="ts">
 // 日记编辑器：使用 CodeMirror 6
-// Tab → 插入一个真正的制表符 \t（由 tabSize:4 渲染为 4 空格宽，是一个完整单元）
+// Tab → 插入一个真正的制表符 \t（由 tabSize:8 渲染为 8 字符宽，是一个完整单元）
 // Shift+Tab / Backspace → 把光标前紧邻的一个 \t 整体删除（一次到位，类似 WPS）
+// Enter → 换行后用 \t 复制上一行行首缩进（避免 CodeMirror 默认生成空格导致退格多次）
 // 选区不为空时 Tab/Shift-Tab 走 indentMore/indentLess 整行缩进
 // Ctrl+Z/Y → history + historyKeymap（成熟库内置）
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { EditorView, keymap, placeholder as cmPlaceholder, type ViewUpdate } from '@codemirror/view'
-import { EditorState, Prec } from '@codemirror/state'
+import { EditorState, EditorSelection, Prec } from '@codemirror/state'
 import { indentMore, indentLess } from '@codemirror/commands'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { useDiaryStore } from '@/stores/diary'
 import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
 /**
- * 自定义 Tab / Shift+Tab / Backspace：
- * - Tab（无选区）：插入一个制表符 \t（完整单元，渲染为 4 空格宽）
+ * 自定义 Tab / Shift+Tab / Backspace / Enter：
+ * - Tab（无选区）：插入一个制表符 \t（完整单元，渲染为 8 字符宽）
  * - Shift+Tab：有选区走 indentLess 整行回退；无选区删除光标前紧邻的一个 \t
  * - Backspace：光标紧跟在 \t 之后且无选区时，整体删除该 \t（一次退掉整个缩进）
+ * - Enter：换行后用 \t 复制上一行行首缩进（CodeMirror 默认会用空格，导致退格需按多次）
  * 用高优先级 Prec.highest 覆盖 defaultKeymap 里的默认行为。
  */
 const tabKeymap = Prec.highest(
@@ -57,6 +59,40 @@ const tabKeymap = Prec.highest(
         // 否则交还默认 Backspace（删一个空格/字符）
         if (state.selection.ranges.some((r) => !r.empty)) return false
         return deletePrecedingTab(view)
+      }
+    },
+    {
+      key: 'Enter',
+      preventDefault: true,
+      run: (view): boolean => {
+        const { state } = view
+        if (state.readOnly) return false
+        // 换行后用 \t 复制上一行行首缩进，保证新行缩进也是完整 \t 单元
+        // （CodeMirror 默认 insertNewlineAndIndent 会用空格，导致 Backspace 需按多次）
+        const changes = state.changeByRange((range) => {
+          let { from, to } = range
+          const line = state.doc.lineAt(from)
+          const lead = /^\t*/.exec(line.text)?.[0] ?? '' // 上一行行首的制表符
+          // 若光标位于行首缩进区内，把换行点移到行首（避免在缩进中间断开）
+          if (
+            from > line.from &&
+            from < line.from + 100 &&
+            !/\S/.test(line.text.slice(0, from))
+          ) {
+            from = line.from
+          }
+          // 跳过行尾空白
+          while (to < line.to && /\s/.test(line.text[to - line.from])) to++
+          const insert = '\n' + lead
+          return {
+            changes: { from, to, insert },
+            range: EditorSelection.cursor(from + 1 + lead.length)
+          }
+        })
+        view.dispatch(
+          state.update(changes, { scrollIntoView: true, userEvent: 'input' })
+        )
+        return true
       }
     }
   ])
@@ -180,7 +216,7 @@ const editorTheme = EditorView.theme({
     caretColor: 'var(--color-accent, #3b82f6)',
     color: 'var(--color-text-primary, #1e293b)',
     padding: '1.25rem 1.5rem 2rem',
-    tabSize: '4',
+    tabSize: '8',
   },
   '&.cm-focused': {
     outline: 'none',
