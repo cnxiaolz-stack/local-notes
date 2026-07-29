@@ -235,6 +235,9 @@ function createEditor(content: string): EditorView {
     doc: content,
     extensions: [
       history(),
+      // Tab 宽度：EditorState.tabSize facet（CodeMirror 用它计算 \t 渲染宽度，
+      // 默认为 4；CSS tab-size 不生效，必须通过此 facet 设置）
+      EditorState.tabSize.of(8),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       // 自定义 Tab/Shift+Tab（最高优先级，覆盖 defaultKeymap 默认 Tab）
       tabKeymap,
