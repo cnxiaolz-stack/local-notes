@@ -201,6 +201,15 @@ const saveLabel = computed(() => {
   }
 })
 
+/**
+ * 实时字数统计：去除所有空白字符后的字符数。
+ * 与 draft 联动，输入即更新。
+ */
+const charCount = computed(() => {
+  const text = draft.value || ''
+  return text.replace(/\s/g, '').length
+})
+
 // CodeMirror 主题样式
 const editorTheme = EditorView.theme({
   '&': {
@@ -349,9 +358,13 @@ function flushSave(): void {
         <h2 class="editor-date-full">{{ fullDateLabel }}</h2>
         <p class="editor-date-weekday">{{ weekdayLabel }}</p>
       </div>
-      <div class="editor-status" :class="`is-${saveStatus}`">
-        <span v-if="saveStatus !== 'idle'" class="status-dot"></span>
-        <span class="status-text">{{ saveLabel }}</span>
+      <div class="editor-meta">
+        <span class="meta-word-count">{{ charCount }} 字</span>
+        <span class="meta-divider" aria-hidden="true">·</span>
+        <div class="editor-status" :class="`is-${saveStatus}`">
+          <span v-if="saveStatus !== 'idle'" class="status-dot"></span>
+          <span class="status-text">{{ saveLabel }}</span>
+        </div>
       </div>
     </div>
 
@@ -420,15 +433,29 @@ function flushSave(): void {
   }
 }
 
-.editor-status {
+.editor-meta {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
   min-height: 1.25rem;
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   flex-shrink: 0;
   padding-top: 0.25rem;
+}
+
+.meta-word-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.meta-divider {
+  opacity: 0.5;
+}
+
+.editor-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 .editor-status.is-saved {
   color: var(--color-accent);
