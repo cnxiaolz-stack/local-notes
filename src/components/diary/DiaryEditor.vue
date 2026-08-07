@@ -224,7 +224,7 @@ const editorTheme = EditorView.theme({
   '.cm-content': {
     caretColor: 'var(--color-accent, #3b82f6)',
     color: 'var(--color-text-primary, #1e293b)',
-    padding: '1.25rem 1.5rem 2rem',
+    padding: '1.25rem 1.5rem 0.75rem',
     tabSize: '8',
   },
   '&.cm-focused': {
@@ -354,15 +354,14 @@ function flushSave(): void {
 <template>
   <div class="diary-editor">
     <div class="editor-header">
-      <div class="editor-date-wrap">
-        <h2 class="editor-date-full">{{ fullDateLabel }}</h2>
+      <h2 class="editor-date-full">{{ fullDateLabel }}</h2>
+      <div class="editor-date-row">
         <p class="editor-date-weekday">{{ weekdayLabel }}</p>
+        <p v-if="createdLabel" class="editor-time">
+          创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
+        </p>
       </div>
     </div>
-
-    <p v-if="createdLabel" class="editor-time">
-      创建于 {{ createdLabel }} · 修改于 {{ updatedLabel }}
-    </p>
 
     <div ref="editorRef" class="editor-cm-host"></div>
 
@@ -392,17 +391,17 @@ function flushSave(): void {
 
 .editor-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem 0.75rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.625rem 1.5rem 0.75rem;
   border-bottom: 1px solid var(--color-border);
 }
 
-.editor-date-wrap {
+.editor-date-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
   min-width: 0;
 }
 
@@ -422,18 +421,19 @@ function flushSave(): void {
 
 .editor-time {
   margin: 0;
-  padding: 0.5rem 1.5rem 0;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
   opacity: 0.75;
+  text-align: right;
 }
 
 @media (min-width: 768px) {
-  .editor-time {
-    padding: 0.5rem 2rem 0;
+  .editor-header {
+    padding-left: 2rem;
+    padding-right: 2rem;
   }
   .editor-footer {
-    padding: 0.75rem 2rem;
+    padding: 0.4rem 2rem;
   }
 }
 
@@ -444,8 +444,7 @@ function flushSave(): void {
   min-height: 1.5rem;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
-  padding: 0.75rem 1.5rem;
-  border-top: 1px solid var(--color-border);
+  padding: 0.4rem 1.5rem;
 }
 
 .footer-word-count {
@@ -510,7 +509,7 @@ function flushSave(): void {
 
   .editor-cm-host :deep(.cm-content) {
     font-size: 1.025rem;
-    padding: 1.5rem 2rem 2.5rem;
+    padding: 1.5rem 2rem 1rem;
   }
 }
 </style>

@@ -74,7 +74,9 @@ textarea {
 
   /* 主内容区：充足留白，移动端底部为 Tab 栏留位 */
   .app-main {
-    @apply flex-1 overflow-y-auto px-6 py-8;
+    @apply flex-1 overflow-y-auto px-6;
+    /* 顶部留白为原 2rem 的 2/3 取整，收紧标题与内容间距 */
+    padding-top: 1.33rem;
     padding-bottom: 5.5rem;
     background-color: var(--body-bg);
   }
