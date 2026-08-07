@@ -358,14 +358,6 @@ function flushSave(): void {
         <h2 class="editor-date-full">{{ fullDateLabel }}</h2>
         <p class="editor-date-weekday">{{ weekdayLabel }}</p>
       </div>
-      <div class="editor-meta">
-        <span class="meta-word-count">{{ charCount }} 字</span>
-        <span class="meta-divider" aria-hidden="true">·</span>
-        <div class="editor-status" :class="`is-${saveStatus}`">
-          <span v-if="saveStatus !== 'idle'" class="status-dot"></span>
-          <span class="status-text">{{ saveLabel }}</span>
-        </div>
-      </div>
     </div>
 
     <p v-if="createdLabel" class="editor-time">
@@ -373,6 +365,15 @@ function flushSave(): void {
     </p>
 
     <div ref="editorRef" class="editor-cm-host"></div>
+
+    <div class="editor-footer">
+      <span class="footer-word-count">{{ charCount }} 字</span>
+      <span class="meta-divider" aria-hidden="true">·</span>
+      <div class="editor-status" :class="`is-${saveStatus}`">
+        <span v-if="saveStatus !== 'idle'" class="status-dot"></span>
+        <span class="status-text">{{ saveLabel }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -422,7 +423,7 @@ function flushSave(): void {
 .editor-time {
   margin: 0;
   padding: 0.5rem 1.5rem 0;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
   opacity: 0.75;
 }
@@ -431,20 +432,23 @@ function flushSave(): void {
   .editor-time {
     padding: 0.5rem 2rem 0;
   }
+  .editor-footer {
+    padding: 0.75rem 2rem;
+  }
 }
 
-.editor-meta {
-  display: inline-flex;
+.editor-footer {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 1.25rem;
-  font-size: 0.75rem;
+  min-height: 1.5rem;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
-  flex-shrink: 0;
-  padding-top: 0.25rem;
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--color-border);
 }
 
-.meta-word-count {
+.footer-word-count {
   font-variant-numeric: tabular-nums;
 }
 
