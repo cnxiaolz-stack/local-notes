@@ -380,6 +380,10 @@ function flushSave(): void {
 .diary-editor {
   display: flex;
   flex-direction: column;
+  /* 填满父容器高度，使正文在 .cm-scroller 内部滚动，
+     header/footer 固定在顶/底不被滚动覆盖 */
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 0.75rem;
   background-color: var(--color-surface);
   backdrop-filter: blur(var(--glass-blur));
@@ -480,14 +484,14 @@ function flushSave(): void {
 /* CodeMirror 容器：必须给确定高度，否则 .cm-editor 高度为 0 */
 .editor-cm-host {
   flex: 1 1 auto;
-  min-height: 60vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 .editor-cm-host :deep(.cm-editor) {
   height: 100%;
-  min-height: 60vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -499,12 +503,7 @@ function flushSave(): void {
 
 @media (min-width: 768px) {
   .editor-cm-host {
-    min-height: calc(100vh - 220px);
     font-size: 1.025rem;
-  }
-
-  .editor-cm-host :deep(.cm-editor) {
-    min-height: calc(100vh - 220px);
   }
 
   .editor-cm-host :deep(.cm-content) {

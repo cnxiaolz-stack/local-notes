@@ -146,11 +146,15 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  /* 填满 .app-main 高度，使编辑器内部滚动而非整页滚动 */
+  min-height: 100%;
 }
 
 .diary-main {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .diary-loading {
