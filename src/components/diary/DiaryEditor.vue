@@ -403,9 +403,8 @@ function flushSave(): void {
 
 .editor-date-row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.125rem;
   min-width: 0;
 }
 
@@ -421,6 +420,7 @@ function flushSave(): void {
   margin: 0;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
 .editor-time {
@@ -428,7 +428,6 @@ function flushSave(): void {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
   opacity: 0.75;
-  text-align: right;
 }
 
 @media (min-width: 768px) {
@@ -438,6 +437,15 @@ function flushSave(): void {
   }
   .editor-footer {
     padding: 0.4rem 2rem;
+  }
+  .editor-date-row {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .editor-time {
+    text-align: right;
   }
 }
 
