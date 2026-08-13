@@ -92,11 +92,6 @@ export const LEGACY_COLOR_MAP: Record<string, string> = {
   '#9ca3af': '#3b82f6'  // 灰 → 蓝
 }
 
-/** 随机取一个任务颜色 */
-export function randomTaskColor(): string {
-  return TASK_COLORS[Math.floor(Math.random() * TASK_COLORS.length)]
-}
-
 /**
  * 任务颜色归一化（渲染层兜底）：
  * - 无颜色 → 回退品牌蓝

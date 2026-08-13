@@ -22,10 +22,6 @@ export interface StorageAdapter {
 
   // ---- Notes ----
   getAllNotes(): Promise<Note[]>
-  getNotesByDate(date: string): Promise<Note[]>
-  getNote(id: string): Promise<Note | null>
-  /** 分页查询便签（按 updated_at DESC），用于列表滚动加载 */
-  getNotesPage(limit: number, offset: number): Promise<Note[]>
   createNote(note: Omit<Note, 'id' | 'created_at' | 'updated_at'>): Promise<Note>
   updateNote(id: string, patch: Partial<Note>): Promise<Note>
   deleteNote(id: string): Promise<void>

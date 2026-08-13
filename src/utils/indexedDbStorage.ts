@@ -132,25 +132,6 @@ export class IndexedDbStorage implements StorageAdapter {
     return getDb().notes.orderBy('updated_at').reverse().toArray()
   }
 
-  async getNotesPage(limit: number, offset: number): Promise<Note[]> {
-    return getDb()
-      .notes.orderBy('updated_at')
-      .reverse()
-      .offset(offset)
-      .limit(limit)
-      .toArray()
-  }
-
-  async getNotesByDate(date: string): Promise<Note[]> {
-    const items = await getDb().notes.where('date').equals(date).toArray()
-    return items.sort((a, b) => a.created_at - b.created_at)
-  }
-
-  async getNote(id: string): Promise<Note | null> {
-    const item = await getDb().notes.get(id)
-    return item ?? null
-  }
-
   async createNote(
     note: Omit<Note, 'id' | 'created_at' | 'updated_at'>
   ): Promise<Note> {

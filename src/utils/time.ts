@@ -57,20 +57,6 @@ export function formatCreatedDate(ts: number): string {
 }
 
 /**
- * 将时间戳格式化为完整的日期时间字符串。
- * 例如：2026年7月23日 14:30
- */
-export function formatDateTime(ts: number): string {
-  const d = new Date(ts)
-  const y = d.getFullYear()
-  const m = d.getMonth() + 1
-  const day = d.getDate()
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  return `${y}年${m}月${day}日 ${hh}:${mm}`
-}
-
-/**
  * 获取当前日期的 YYYY-MM-DD 字符串。
  */
 export function todayStr(): string {

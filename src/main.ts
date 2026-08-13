@@ -2,7 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import { initDatabase } from '@/utils/db'
+import { getStorage } from '@/utils/storage'
 import { migrateLegacyTaskColors } from '@/utils/migrate'
 import { isTauriEnv } from '@/utils/env'
 import './style.css'
@@ -45,7 +45,7 @@ async function cleanupServiceWorker(): Promise<void> {
 // 先初始化数据库，清理 SW，执行数据迁移，再挂载应用
 ;(async () => {
   try {
-    await initDatabase()
+    await getStorage().init()
   } catch (err) {
     // 数据库初始化失败时打印详细错误，便于排查（不阻断挂载，PWA 端可降级）
     console.error('[qingji] 数据库初始化失败：', err)

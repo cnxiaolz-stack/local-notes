@@ -252,31 +252,6 @@ export class SQLiteStorage implements StorageAdapter {
     return rows.map(rowToNote)
   }
 
-  async getNotesPage(limit: number, offset: number): Promise<Note[]> {
-    const rows = await this.getDb().select<NoteRow[]>(
-      'SELECT * FROM notes ORDER BY updated_at DESC LIMIT $1 OFFSET $2',
-      [limit, offset]
-    )
-    return rows.map(rowToNote)
-  }
-
-  async getNotesByDate(date: string): Promise<Note[]> {
-    const rows = await this.getDb().select<NoteRow[]>(
-      'SELECT * FROM notes WHERE date = $1 ORDER BY created_at ASC',
-      [date]
-    )
-    return rows.map(rowToNote)
-  }
-
-  async getNote(id: string): Promise<Note | null> {
-    const rows = await this.getDb().select<NoteRow[]>(
-      'SELECT * FROM notes WHERE id = $1',
-      [id]
-    )
-    if (rows.length === 0) return null
-    return rowToNote(rows[0])
-  }
-
   async createNote(
     note: Omit<Note, 'id' | 'created_at' | 'updated_at'>
   ): Promise<Note> {

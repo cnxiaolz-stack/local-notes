@@ -3,7 +3,6 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { TASK_COLORS, type Task } from '@/types'
 import { getStorage } from '@/utils/storage'
-import { migrateLegacyTaskColors } from '@/utils/migrate'
 
 /** 返回今天的日期字符串 YYYY-MM-DD */
 function todayStr(): string {
@@ -55,14 +54,6 @@ export const useTaskStore = defineStore('task', () => {
   /** 加载所有有任务的日期（用于日历标记） */
   async function loadTaskDates(): Promise<void> {
     taskDates.value = await getStorage().getTaskDates()
-  }
-
-  /**
-   * 迁移历史任务的旧颜色到当前色板（转调 utils/migrate.ts）。
-   * 实际迁移逻辑在全局初始化（main.ts）中执行，此处保留方法供视图兼容调用。
-   */
-  async function migrateLegacyColors(): Promise<void> {
-    await migrateLegacyTaskColors()
   }
 
   /** 加载分页任务列表；reset=true 时重置从头加载（供「全部任务」列表） */
@@ -144,7 +135,6 @@ export const useTaskStore = defineStore('task', () => {
     loadTasks,
     loadTaskDates,
     loadTasksPage,
-    migrateLegacyColors,
     addTask,
     toggleTask,
     updateTask,
