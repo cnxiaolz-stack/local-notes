@@ -11,6 +11,7 @@ import { EditorState, EditorSelection, Prec } from '@codemirror/state'
 import { indentMore, indentLess } from '@codemirror/commands'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { useDiaryStore } from '@/stores/diary'
+import { useAppStore } from '@/stores/app'
 import { formatCreatedDate, formatModifiedDate } from '@/utils/time'
 
 /**
@@ -127,6 +128,26 @@ const props = defineProps<{
 }>()
 
 const store = useDiaryStore()
+const app = useAppStore()
+
+// ---------- 前一天 / 后一天导航（相邻有日记的日期，跳过空白日） ----------
+
+const sortedDates = computed(() => [...store.diaryDates].sort())
+
+/** 比当前日期更早的最近一篇日记日期 */
+const prevDate = computed<string | null>(() => {
+  const earlier = sortedDates.value.filter((d) => d < props.date)
+  return earlier.length ? earlier[earlier.length - 1] : null
+})
+
+/** 比当前日期更晚的最近一篇日记日期 */
+const nextDate = computed<string | null>(() => {
+  return sortedDates.value.find((d) => d > props.date) ?? null
+})
+
+function gotoDate(date: string): void {
+  app.setSelectedDate(date)
+}
 
 const draft = ref<string>(props.initialContent)
 const editorRef = ref<HTMLDivElement | null>(null)
@@ -354,7 +375,55 @@ function flushSave(): void {
 <template>
   <div class="diary-editor">
     <div class="editor-header">
-      <h2 class="editor-date-full">{{ fullDateLabel }}</h2>
+      <div class="editor-date-top">
+        <h2 class="editor-date-full">{{ fullDateLabel }}</h2>
+        <div class="editor-nav-group">
+          <button
+            type="button"
+            class="editor-nav"
+            :disabled="!prevDate"
+            :title="prevDate ? `前一天（${prevDate}）` : '没有更早的日记'"
+            aria-label="前一天"
+            @click="prevDate && gotoDate(prevDate)"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="editor-nav"
+            :disabled="!nextDate"
+            :title="nextDate ? `后一天（${nextDate}）` : '没有更晚的日记'"
+            aria-label="后一天"
+            @click="nextDate && gotoDate(nextDate)"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
       <div class="editor-date-row">
         <p class="editor-date-weekday">{{ weekdayLabel }}</p>
         <p v-if="createdLabel" class="editor-time">
@@ -399,6 +468,48 @@ function flushSave(): void {
   gap: 0.125rem;
   padding: 0.625rem 1.5rem 0.75rem;
   border-bottom: 1px solid var(--color-border);
+}
+
+.editor-date-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.editor-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.editor-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 200ms ease, color 200ms ease, transform 120ms ease;
+}
+.editor-nav:hover:not(:disabled) {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+.editor-nav:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.editor-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .editor-date-row {
