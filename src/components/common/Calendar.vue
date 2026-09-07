@@ -22,8 +22,12 @@ function formatYmd(d: Date): string {
 
 const todayStr = formatYmd(new Date())
 
-const viewYear = ref(new Date().getFullYear())
-const viewMonth = ref(new Date().getMonth())
+// 初始定位到选中日期所在月份（而非当前月）：
+// 弹层每次打开重新挂载，这样翻月选日后重开仍停留在选中日期所在月，
+// 避免每次打开都跳回当前月。
+const [initYear, initMonth] = props.selectedDate.split('-').map(Number)
+const viewYear = ref(initYear || new Date().getFullYear())
+const viewMonth = ref((initMonth || 1) - 1)
 
 const monthLabel = computed(() =>
   new Intl.DateTimeFormat('zh-CN', {
