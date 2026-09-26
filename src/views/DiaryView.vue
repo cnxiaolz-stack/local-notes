@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// 日记主视图：当天日记编辑器 + 全屏浏览模式（app.showAllList 时挂载 DiaryBrowse）。
+// 日记主视图：当天日记编辑器 + 浏览模式（app.showAllList 时挂载 DiaryBrowse，两者互斥）。
 // 日期切换由全局 header 的日历按钮驱动（app.selectedDate）。
-// 点 header「全部」按钮（app.showAllList）打开全屏浏览（左侧按月分组列表、右侧全文）。
+// 点 header「全部」按钮（app.showAllList）打开内嵌卡片式浏览（左侧按月分组列表、右侧全文）。
 import { onMounted, ref, watch } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
 import { useAppStore } from '@/stores/app'
@@ -58,8 +58,8 @@ onMounted(async () => {
 
 <template>
   <section class="diary-view">
-    <!-- 当天日记输入框 -->
-    <div class="diary-main">
+    <!-- 当天日记输入框（浏览模式时卸载，退出后重新挂载） -->
+    <div v-if="!app.showAllList" class="diary-main">
       <DiaryEditor
         v-if="!isLoading"
         :key="app.selectedDate"
@@ -72,8 +72,8 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- 全屏日记浏览模式（header「全部」按钮触发） -->
-    <DiaryBrowse v-if="app.showAllList" @close="app.setAllList(false)" />
+    <!-- 日记浏览模式（header「全部」按钮触发；内嵌卡片，与编辑器互斥） -->
+    <DiaryBrowse v-else @close="app.setAllList(false)" />
   </section>
 </template>
 
