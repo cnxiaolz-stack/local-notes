@@ -306,7 +306,19 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  flushSave()
+  // 卸载（进入浏览模式/切换日期）时若有未落盘的草稿：
+  // 1) 同步写入 store 内存（commitDraft）——浏览层与编辑器重挂载
+  //    立即可见最新内容，不受异步落盘竞态影响（否则读到数据库旧值，
+  //    重挂载后还会用旧值把新内容覆盖掉，造成日记丢失）
+  // 2) 异步落盘（persistDiary）——不阻塞卸载
+  if (draft.value !== lastSavedContent) {
+    store.commitDraft(props.date, draft.value)
+    void store.persistDiary(props.date, draft.value)
+  }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
   if (view.value) {
     view.value.destroy()
     view.value = null
@@ -361,14 +373,6 @@ function scheduleSavedReset(): void {
     saveStatus.value = 'idle'
     savedTimer = null
   }, 2000)
-}
-
-function flushSave(): void {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
-    debounceTimer = null
-    void doSave()
-  }
 }
 </script>
 
