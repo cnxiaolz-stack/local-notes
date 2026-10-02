@@ -13,11 +13,18 @@ const app = useAppStore()
 
 /** 当前编辑区内容镜像（来自 store.currentDiary，无则为空串） */
 const diaryContent = ref<string>('')
-/** 切换日期时的加载态（也用于首次挂载，触发旧编辑器卸载并 flushSave） */
+/** 切换日期时的加载态（首次挂载与日期切换时短暂显示加载占位） */
 const isLoading = ref<boolean>(true)
 
 /** 按全局选中日期加载日记 */
 async function loadDate(date: string): Promise<void> {
+  // 该日期有刚从编辑器提交、尚未完成落盘的草稿（进入浏览模式后快速切回）：
+  // 内存 currentDiary 即最新内容，跳过数据库读取，避免落盘竞态读到旧值
+  if (diaryStore.pendingDraftDate === date) {
+    diaryContent.value = diaryStore.currentDiary?.content ?? ''
+    isLoading.value = false
+    return
+  }
   isLoading.value = true
   try {
     await diaryStore.loadDiary(date)
