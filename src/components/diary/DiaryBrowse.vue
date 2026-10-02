@@ -53,6 +53,17 @@ function gotoDate(date: string): void {
 async function loadBrowseDiary(date: string): Promise<void> {
   isLoading.value = true
   try {
+    // 内存优先：刚编辑过的内容由编辑器卸载时同步进 store（可能尚未落盘），
+    // 直接读数据库会因落盘竞态显示旧内容
+    if (diaryStore.currentDiary?.date === date) {
+      browseDiary.value = diaryStore.currentDiary
+      return
+    }
+    const cached = diaryStore.pagedDiaries.find((d) => d.date === date)
+    if (cached) {
+      browseDiary.value = cached
+      return
+    }
     browseDiary.value = await getStorage().getDiary(date)
   } catch (err) {
     console.error('[qingji] 浏览模式加载日记失败：', err)
@@ -133,7 +144,9 @@ onMounted(async () => {
   // 临时收起侧边栏给浏览层腾面积（直接赋值不写 localStorage，用户持久偏好不受影响）
   sidebarWasCollapsed = app.sidebarCollapsed
   app.sidebarCollapsed = true
-  if (diaryStore.pagedDiaries.length === 0) {
+  // 列表是否已加载过要用标志判断，不能用 length——commitDraft 可能已插入
+  // 未落盘的乐观条目（length > 0 但历史日记尚未加载过）
+  if (!diaryStore.pagedLoadedOnce) {
     await diaryStore.loadDiariesPage(true)
   }
   nextTick(() => {
